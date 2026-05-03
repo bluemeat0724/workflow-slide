@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { Diagram, EdgeEmphasis, NodeType, Selection, Theme } from '../../model/diagram'
 import type { Messages } from '../../i18n'
 import type { ThemePresetId } from '../../data/themePresets'
+import { getSectionTitle } from '../../utils/sectionLabels'
 
 type InspectorProps = {
   diagram: Diagram
@@ -70,7 +71,12 @@ export function Inspector({
     }
 
     const lane = diagram.lanes.find((item) => item.id === node.laneId)
-    return lane ? `${node.title} (${lane.title})` : node.title
+    if (!lane) {
+      return node.title
+    }
+
+    const laneTitle = getSectionTitle(lane)
+    return laneTitle ? `${node.title} (${laneTitle})` : node.title
   }
 
   // Force remount when switching source node so the select resets cleanly.

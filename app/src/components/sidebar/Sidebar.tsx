@@ -1,5 +1,6 @@
 import type { Diagram, Selection } from '../../model/diagram'
 import type { Messages } from '../../i18n'
+import { getSectionSubtitle, getSectionTitle } from '../../utils/sectionLabels'
 
 type SidebarProps = {
   diagram: Diagram
@@ -27,17 +28,22 @@ export function Sidebar({ diagram, messages, selection, onSelect, onAddLane, onA
           <button type="button" className="sidebar__add-button" onClick={onAddLane}>{messages.sidebar.addLane}</button>
         </div>
         <div className="sidebar__list">
-          {diagram.lanes.map((lane) => (
-            <button
-              key={lane.id}
-              type="button"
-              className={`sidebar__item ${selection.kind === 'lane' && selection.id === lane.id ? 'is-selected' : ''}`}
-              onClick={() => onSelect({ kind: 'lane', id: lane.id })}
-            >
-              <strong>{lane.title}</strong>
-              <span>{lane.subtitle}</span>
-            </button>
-          ))}
+          {diagram.lanes.map((lane) => {
+            const laneTitle = getSectionTitle(lane) || `Section ${lane.order + 1}`
+            const laneSubtitle = getSectionSubtitle(lane)
+
+            return (
+              <button
+                key={lane.id}
+                type="button"
+                className={`sidebar__item ${selection.kind === 'lane' && selection.id === lane.id ? 'is-selected' : ''}`}
+                onClick={() => onSelect({ kind: 'lane', id: lane.id })}
+              >
+                <strong>{laneTitle}</strong>
+                {laneSubtitle ? <span>{laneSubtitle}</span> : null}
+              </button>
+            )
+          })}
         </div>
       </section>
 

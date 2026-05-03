@@ -1,6 +1,7 @@
 import type { Diagram } from '../model/diagram'
 import { BOARD_HEIGHT, BOARD_WIDTH } from '../model/diagram'
 import { buildEdgePath, getLaneBounds } from './geometry'
+import { getSectionSubtitle, getSectionTitle } from './sectionLabels'
 import { withAlpha } from './theme'
 
 function escapeHtml(value: string): string {
@@ -23,11 +24,13 @@ export function generateStandaloneHtml(diagram: Diagram): string {
   const laneMarkup = diagram.lanes
     .map((lane) => {
       const bounds = getLaneBounds(diagram.lanes, lane.id)
+      const laneTitle = getSectionTitle(lane)
+      const laneSubtitle = getSectionSubtitle(lane)
       return `
         <section class="lane" style="top:${bounds.top}%;height:${bounds.height}%;background:${escapeHtml(diagram.theme.laneBackground)};">
           <div class="lane__label">
-            <span class="lane__title">${escapeHtml(lane.title)}</span>
-            <span class="lane__subtitle">${escapeHtml(lane.subtitle)}</span>
+            <span class="lane__title">${escapeHtml(laneTitle)}</span>
+            ${laneSubtitle ? `<span class="lane__subtitle">${escapeHtml(laneSubtitle)}</span>` : ''}
           </div>
         </section>`
     })

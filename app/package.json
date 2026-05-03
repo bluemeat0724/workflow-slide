@@ -5,11 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node --env-file=.env server/index.mjs",
+    "server:dev": "node --watch --env-file=.env server/index.mjs",
+    "db:migrate": "node --env-file=.env server/migrate.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
+    "pg": "^8.20.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
@@ -25,6 +30,7 @@
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "vitest": "^3.2.4"
   }
 }

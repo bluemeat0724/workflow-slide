@@ -14,6 +14,7 @@ import {
   getLaneBounds,
   getLaneByY,
 } from '../../utils/geometry'
+import { getSectionSubtitle, getSectionTitle } from '../../utils/sectionLabels'
 import { getCanvasThemeVars } from '../../utils/theme'
 
 type CanvasProps = {
@@ -512,39 +513,26 @@ export function Canvas({
   }
 
   return (
-    <section className="canvas-panel">
-      <div className="canvas-panel__header">
-        <div>
-          <h2>{diagram.meta.title}</h2>
-          <p>{messages.canvas.guide}</p>
-          <p className="canvas-panel__hint">{messages.canvas.dragHint}</p>
-          <p className="canvas-panel__hint">{messages.canvas.connectHint}</p>
-        </div>
-        <div className="canvas-panel__legend">
-          <span><i className="legend-line legend-line--theme" />{messages.canvas.legendTheme}</span>
-          <span><i className="legend-line legend-line--soft" />{messages.canvas.legendSoft}</span>
-        </div>
-      </div>
-
-      <div className="canvas-shell">
-        <div
-          className="slide"
-          style={themeVars}
-          onClick={() => {
-            onSelect({ kind: 'canvas' })
-            onSetMultiSelection([])
-            setContextMenu(null)
-          }}
-        >
-          <div
-            ref={boardRef}
-            className="board"
-            style={{ background: diagram.theme.boardBackground } as CSSProperties}
-            onPointerDownCapture={startMarquee}
-          >
+    <div
+      className="canvas-panel"
+      style={themeVars}
+      onClick={() => {
+        onSelect({ kind: 'canvas' })
+        onSetMultiSelection([])
+        setContextMenu(null)
+      }}
+    >
+      <div
+        ref={boardRef}
+        className="board"
+        style={{ background: diagram.theme.boardBackground } as CSSProperties}
+        onPointerDownCapture={startMarquee}
+      >
             {diagram.lanes.map((lane) => {
               const bounds = getLaneBounds(diagram.lanes, lane.id)
               const isSelected = selection.kind === 'lane' && selection.id === lane.id
+              const laneTitle = getSectionTitle(lane)
+              const laneSubtitle = getSectionSubtitle(lane)
 
               return (
                 <section
@@ -559,8 +547,8 @@ export function Canvas({
                   }}
                 >
                   <div className="lane__label">
-                    <span className="lane__title">{lane.title}</span>
-                    <span className="lane__subtitle">{lane.subtitle}</span>
+                    <span className="lane__title">{laneTitle}</span>
+                    {laneSubtitle ? <span className="lane__subtitle">{laneSubtitle}</span> : null}
                   </div>
                 </section>
               )
@@ -671,10 +659,8 @@ export function Canvas({
                 </article>
               )
             })}
-            {renderContextMenu()}
-          </div>
-        </div>
+        {renderContextMenu()}
       </div>
-    </section>
+    </div>
   )
 }

@@ -1,0 +1,34 @@
+{
+  "title": "客户支持自动化流程",
+  "locale": "zh-CN",
+  "lanes": [
+    {
+      "key": "intake",
+      "title": "需求进入",
+      "subtitle": "collect request",
+      "nodes": [
+        {
+          "key": "user_request",
+          "type": "default",
+          "title": "用户提交问题",
+          "description": "用户在表单或聊天入口提交问题和上下文。",
+          "tag": "input"
+        },
+        {
+          "key": "triage_agent",
+          "type": "agent",
+          "title": "分诊 Agent",
+          "description": "识别问题类型、优先级和处理路径。",
+          "tag": "classification"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "user_request",
+      "to": "triage_agent",
+      "emphasis": "theme"
+    }
+  ]
+}

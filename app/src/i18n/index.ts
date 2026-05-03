@@ -7,6 +7,12 @@ export type Messages = {
   subtitle: string
   toolbar: {
     locale: string
+    newDiagram: string
+    newDiagramConfirm: string
+    createRemote: string
+    diagramList: string
+    revisionHistory: string
+    saveRevision: string
     exportHtml: string
     exportJson: string
     importJson: string
@@ -19,6 +25,7 @@ export type Messages = {
     jsonImportFailed: string
     draftRestored: string
     draftCleared: string
+    newDiagramCreated: string
     laneDeleteBlocked: string
     edgeCreated: string
     edgeExists: string
@@ -28,6 +35,52 @@ export type Messages = {
     edgeUpdateInvalid: string
     edgeDeleted: string
     nodesDeleted: string
+    createRemoteCreating: string
+    createRemoteFailed: string
+    persistenceSaving: string
+    persistenceSaved: string
+    persistenceOfflineDraft: string
+    persistenceConflict: string
+    persistenceError: string
+    remoteLoadNotFound: string
+    remoteLoadForbidden: string
+    remoteLoadServerError: string
+    remoteLoadNetworkError: string
+    remoteLoadUnknownError: string
+    revisionSaved: string
+    revisionSaveFailed: string
+    revisionRestoreFailed: string
+    revisionRestored: string
+    diagramsLoaded: string
+    diagramsLoadFailed: string
+    diagramDeleted: string
+    diagramDeleteFailed: string
+    revisionsLoaded: string
+    revisionsLoadFailed: string
+  }
+  library: {
+    close: string
+    diagramsTitle: string
+    revisionsTitle: string
+    searchPlaceholder: string
+    diagramsEmpty: string
+    revisionsEmpty: string
+    currentDiagram: string
+    openDiagram: string
+    deleteDiagram: string
+    deletingDiagram: string
+    restoreRevision: string
+    deleteDiagramConfirm: string
+    restoreRevisionConfirm: string
+    saveRevisionPrompt: string
+    saveRevisionPlaceholder: string
+    revisionSource: string
+    revisionVersion: string
+    updatedAt: string
+    createdAt: string
+    previousPage: string
+    nextPage: string
+    pageLabel: string
   }
   sidebar: {
     title: string
@@ -75,11 +128,6 @@ export type Messages = {
     custom: string
   }
   canvas: {
-    guide: string
-    legendTheme: string
-    legendSoft: string
-    dragHint: string
-    connectHint: string
     inlineTitlePlaceholder: string
     inlineDescriptionPlaceholder: string
     inlineTagPlaceholder: string
