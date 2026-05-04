@@ -1,10 +1,15 @@
 import type {
   ApiErrorResponse,
+  CreateWorkflowSessionRequest,
+  CreateWorkflowSessionResponse,
   CreateDiagramRequest,
   CreateDiagramResponse,
   CreateRevisionRequest,
   CreateRevisionResponse,
+  ExecuteWorkflowSessionRequest,
+  ExecuteWorkflowSessionResponse,
   GetDiagramResponse,
+  HealthCheckResponse,
   GetRevisionResponse,
   Id,
   ImportDiagramRequest,
@@ -14,6 +19,8 @@ import type {
   ListRevisionsResponse,
   RestoreRevisionRequest,
   RestoreRevisionResponse,
+  SendWorkflowMessageRequest,
+  SendWorkflowMessageResponse,
   UpdateDraftRequest,
   UpdateDraftResponse,
 } from './contracts'
@@ -101,6 +108,10 @@ export function createDiagramApiClient({ baseUrl = '/api', fetchImpl = fetch }: 
   }
 
   return {
+    getHealth(signal?: AbortSignal) {
+      return request<HealthCheckResponse>('health', { signal })
+    },
+
     createDiagram(body: CreateDiagramRequest, signal?: AbortSignal) {
       return request<CreateDiagramResponse>('diagrams', { method: 'POST', body, signal })
     },
@@ -139,6 +150,18 @@ export function createDiagramApiClient({ baseUrl = '/api', fetchImpl = fetch }: 
 
     deleteDiagram(diagramId: Id, signal?: AbortSignal) {
       return request<void>(`diagrams/${diagramId}`, { method: 'DELETE', signal })
+    },
+
+    createWorkflowSession(body: CreateWorkflowSessionRequest, signal?: AbortSignal) {
+      return request<CreateWorkflowSessionResponse>('ai/workflow/sessions', { method: 'POST', body, signal })
+    },
+
+    sendWorkflowMessage(sessionId: Id, body: SendWorkflowMessageRequest, signal?: AbortSignal) {
+      return request<SendWorkflowMessageResponse>(`ai/workflow/sessions/${sessionId}/messages`, { method: 'POST', body, signal })
+    },
+
+    executeWorkflowSession(sessionId: Id, body: ExecuteWorkflowSessionRequest, signal?: AbortSignal) {
+      return request<ExecuteWorkflowSessionResponse>(`ai/workflow/sessions/${sessionId}/execute`, { method: 'POST', body, signal })
     },
   }
 }

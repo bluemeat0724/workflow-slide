@@ -16,6 +16,13 @@ export type ApiErrorCode =
   | 'VERSION_CONFLICT'
   | 'SCHEMA_VERSION_UNSUPPORTED'
   | 'RATE_LIMITED'
+  | 'WORKFLOW_SESSION_NOT_FOUND'
+  | 'WORKFLOW_SESSION_STATE_INVALID'
+  | 'WORKFLOW_PROPOSAL_VERSION_MISMATCH'
+  | 'AI_CONFIGURATION_ERROR'
+  | 'AI_UPSTREAM_ERROR'
+  | 'AI_RESPONSE_INVALID'
+  | 'AI_TIMEOUT'
   | 'INTERNAL_ERROR'
 
 export type UserSummary = {
@@ -155,3 +162,85 @@ export type ListDiagramsQuery = {
 export type ListDiagramsResponse = PaginationResponse<DiagramListItem>
 
 export type DeleteDiagramResponse = void
+
+export type HealthCheckResponse = {
+  ok: true
+  storageDriver: 'sqlite' | 'postgres'
+  capabilities: {
+    supportsDatabase: boolean
+    supportsDiagramLibrary: boolean
+    supportsRevisionHistory: boolean
+    supportsCreateRemoteDocument: boolean
+    supportsAi: boolean
+  }
+}
+
+export type WorkflowAgentState =
+  | 'collecting_requirements'
+  | 'awaiting_execution_confirmation'
+  | 'executing'
+  | 'completed'
+  | 'error'
+
+export type WorkflowAgentMessageRole = 'user' | 'assistant' | 'system'
+
+export type WorkflowAgentMessage = {
+  id: Id
+  role: WorkflowAgentMessageRole
+  content: string
+  createdAt: IsoDateTime
+}
+
+export type WorkflowAgentProposal = {
+  version: number
+  title: string
+  summary: string
+  themePresetId?: string | null
+}
+
+export type CreateWorkflowSessionRequest = {
+  locale?: Diagram['meta']['locale']
+  themePresetId?: string
+  theme?: Diagram['theme']
+  currentDiagram?: Diagram | null
+}
+
+export type CreateWorkflowSessionResponse = {
+  ok: true
+  sessionId: Id
+  welcomeMessage: string
+  state: WorkflowAgentState
+}
+
+export type SendWorkflowMessageRequest = {
+  message: string
+  history: WorkflowAgentMessage[]
+  currentDiagram?: Diagram | null
+}
+
+export type SendWorkflowMessageResponse = {
+  ok: true
+  reply: WorkflowAgentMessage
+  state: WorkflowAgentState
+  canExecute: boolean
+  proposal?: WorkflowAgentProposal
+}
+
+export type ExecuteWorkflowSessionRequest = {
+  confirmed: true
+  proposalVersion: number
+  currentDiagram?: Diagram | null
+}
+
+export type ExecuteWorkflowSessionResponse = {
+  ok: true
+  diagram: Diagram
+  summary: string
+  warnings: string[]
+  meta: {
+    model: string
+    sessionId: Id
+    generator: 'sub-agent-prefix'
+    normalized: true
+  }
+}

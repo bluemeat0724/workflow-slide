@@ -5,6 +5,7 @@ export type RuntimeCapabilities = {
   supportsDiagramLibrary: boolean
   supportsRevisionHistory: boolean
   supportsCreateRemoteDocument: boolean
+  supportsAi: boolean
 }
 
 export type RuntimeConfig = {
@@ -13,8 +14,14 @@ export type RuntimeConfig = {
   capabilities: RuntimeCapabilities
 }
 
-function resolveStorageMode(): StorageMode {
-  const mode = import.meta.env.VITE_STORAGE_MODE
+type RuntimeEnv = {
+  [key: string]: unknown
+  VITE_STORAGE_MODE?: string
+  VITE_API_BASE_URL?: string
+}
+
+export function resolveStorageModeFromEnv(env: RuntimeEnv): StorageMode {
+  const mode = env.VITE_STORAGE_MODE
   if (mode === 'local-db' || mode === 'remote' || mode === 'local-only') {
     return mode
   }
@@ -22,9 +29,13 @@ function resolveStorageMode(): StorageMode {
   return 'local-only'
 }
 
-function resolveApiBaseUrl(storageMode: StorageMode): string | null {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL
+export function resolveApiBaseUrlFromEnv(storageMode: StorageMode, env: RuntimeEnv): string | null {
+  if (storageMode === 'local-only') {
+    return null
+  }
+
+  if (env.VITE_API_BASE_URL) {
+    return env.VITE_API_BASE_URL
   }
 
   if (storageMode === 'local-db') {
@@ -46,6 +57,7 @@ function deriveCapabilities(storageMode: StorageMode): RuntimeCapabilities {
     supportsDiagramLibrary: supportsDatabase,
     supportsRevisionHistory: supportsDatabase,
     supportsCreateRemoteDocument: supportsDatabase,
+    supportsAi: false,
   }
 }
 
@@ -56,8 +68,8 @@ export function getRuntimeConfig(): RuntimeConfig {
     return cachedConfig
   }
 
-  const storageMode = resolveStorageMode()
-  const apiBaseUrl = resolveApiBaseUrl(storageMode)
+  const storageMode = resolveStorageModeFromEnv(import.meta.env)
+  const apiBaseUrl = resolveApiBaseUrlFromEnv(storageMode, import.meta.env)
   const capabilities = deriveCapabilities(storageMode)
 
   cachedConfig = { storageMode, apiBaseUrl, capabilities }

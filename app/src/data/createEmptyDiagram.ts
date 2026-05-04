@@ -1,7 +1,7 @@
 import type { Diagram, Locale } from '../model/diagram'
 import { getThemePresetById } from './themePresets'
 
-const defaultTheme = getThemePresetById('accenture-purple')?.theme
+const defaultTheme = getThemePresetById('violet')?.theme
 
 export function createEmptyDiagram(locale: Locale = 'zh-CN'): Diagram {
   return {

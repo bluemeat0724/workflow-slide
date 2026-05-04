@@ -5,6 +5,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_PORT = 3103
 const DEFAULT_DEV_USER_ID = '00000000-0000-0000-0000-000000000001'
 
+function parseBooleanEnv(value, defaultValue = false) {
+  if (value === undefined) {
+    return defaultValue
+  }
+
+  return value === '1' || value === 'true'
+}
+
 function requireEnv(name) {
   const value = process.env[name]
   if (!value) {
@@ -50,5 +58,50 @@ export function getServerConfig() {
     defaultUserId: process.env.DEFAULT_USER_ID ?? DEFAULT_DEV_USER_ID,
     defaultUserEmail: process.env.DEFAULT_USER_EMAIL ?? 'local-dev@workflow-tool.local',
     defaultUserName: process.env.DEFAULT_USER_NAME ?? 'Local Dev User',
+  }
+}
+
+export function hasAiConfig() {
+  return Boolean(process.env.OPENAI_API_KEY && process.env.DEFAULT_MODEL_NAME)
+}
+
+export function resolveWorkflowJsonBaseUrl({ apiBase, workflowJsonBaseUrl }) {
+  if (workflowJsonBaseUrl) {
+    return workflowJsonBaseUrl
+  }
+
+  if (!apiBase) {
+    return undefined
+  }
+
+  try {
+    const parsed = new URL(apiBase)
+    if (parsed.hostname === 'api.deepseek.com' && !parsed.pathname.startsWith('/beta')) {
+      return `${parsed.origin}/beta`
+    }
+  } catch {
+    return apiBase
+  }
+
+  return apiBase
+}
+
+export function getAiConfig() {
+  const apiKey = requireEnv('OPENAI_API_KEY')
+  const defaultModelName = requireEnv('DEFAULT_MODEL_NAME')
+  const apiBase = process.env.OPENAI_API_BASE
+  const workflowJsonBaseUrl = resolveWorkflowJsonBaseUrl({
+    apiBase,
+    workflowJsonBaseUrl: process.env.WORKFLOW_JSON_BASE_URL,
+  })
+
+  return {
+    apiKey,
+    apiBase,
+    defaultModelName,
+    enableThinking: parseBooleanEnv(process.env.ENABLE_THINKING, false),
+    defaultReasoningEffort: process.env.DEFAULT_REASONING_EFFORT ?? 'medium',
+    workflowJsonBaseUrl,
+    workflowJsonModelName: process.env.WORKFLOW_JSON_MODEL_NAME ?? defaultModelName,
   }
 }

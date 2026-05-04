@@ -176,7 +176,7 @@ v1 建议采用 4 层职责，而不是单模型一次性完成全部工作。
 ```ts
 type CreateWorkflowSessionRequest = {
   locale?: 'zh-CN' | 'en-US'
-  themePresetId?: 'accenture-purple' | 'lenovo-red' | 'pfizer-blue'
+  themePresetId?: 'violet' | 'crimson' | 'azure' | 'amber' | 'graphite' | 'aqua' | 'teal'
 }
 ```
 
@@ -187,6 +187,7 @@ type CreateWorkflowSessionResponse = {
   ok: true
   sessionId: string
   welcomeMessage: string
+  state: 'collecting_requirements'
 }
 ```
 
@@ -208,10 +209,17 @@ type SendWorkflowMessageRequest = {
 type SendWorkflowMessageResponse = {
   ok: true
   reply: {
+    id: string
     role: 'assistant'
     content: string
+    createdAt: string
   }
-  state: 'collecting_requirements' | 'awaiting_execution_confirmation'
+  state:
+    | 'collecting_requirements'
+    | 'awaiting_execution_confirmation'
+    | 'executing'
+    | 'completed'
+    | 'error'
   canExecute: boolean
   proposal?: {
     version: number
@@ -282,12 +290,12 @@ type ExecuteWorkflowSessionResponse = {
 
 如需扩展 `ApiErrorCode`，建议新增：
 
-- `AI_CONFIG_MISSING`
-- `AI_UPSTREAM_ERROR`
+- `WORKFLOW_SESSION_NOT_FOUND`
+- `WORKFLOW_SESSION_STATE_INVALID`
+- `WORKFLOW_PROPOSAL_VERSION_MISMATCH`
+- `AI_CONFIGURATION_ERROR`
 - `AI_RESPONSE_INVALID`
-- `AI_TIMEOUT`
-- `AI_SESSION_NOT_FOUND`
-- `AI_EXECUTION_NOT_CONFIRMED`
+- `INTERNAL_ERROR`
 
 ## 6. 模型调用策略
 
@@ -447,7 +455,7 @@ sub agent 的 user prompt 应包含：
 程序侧处理：
 
 - `themePresetId` 有值时使用对应预设
-- 否则默认 `accenture-purple`
+- 否则默认 `violet`
 - 主题来源直接复用 `app/src/data/themePresets.ts` 的字段结构
 
 ### 8.2 ID 规则
@@ -740,4 +748,3 @@ mock OpenAI client，验证：
 - 支持会话跨刷新恢复
 - 支持行业模板或示例 few-shot
 - 支持按语言自动优化 lane subtitle
-

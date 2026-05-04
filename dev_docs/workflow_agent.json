@@ -1,0 +1,307 @@
+{
+  "meta": {
+    "title": "RAG + GraphRAG Hybrid Retrieval Workflow",
+    "locale": "zh-CN",
+    "version": "0.1.0"
+  },
+  "theme": {
+    "name": "Violet",
+    "bgPrimary": "#ffffff",
+    "boardBackground": "linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.74))",
+    "laneBackground": "linear-gradient(90deg, rgba(125, 44, 255, 0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%)",
+    "textPrimary": "#0b0b0f",
+    "textMuted": "#555563",
+    "accent": "#7d2cff",
+    "accentDeep": "#5b16c7",
+    "accentSoft": "rgba(125, 44, 255, 0.08)",
+    "lineSoft": "rgba(11, 11, 15, 0.28)"
+  },
+  "lanes": [
+    {
+      "id": "lane-1",
+      "title": "数据接入",
+      "subtitle": "knowledge ingestion",
+      "order": 0
+    },
+    {
+      "id": "lane-2",
+      "title": "索引构建",
+      "subtitle": "index building",
+      "order": 1
+    },
+    {
+      "id": "lane-3",
+      "title": "混合检索",
+      "subtitle": "hybrid retrieval",
+      "order": 2
+    },
+    {
+      "id": "lane-4",
+      "title": "回答生成",
+      "subtitle": "answer generation",
+      "order": 3
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node-1",
+      "laneId": "lane-1",
+      "type": "default",
+      "title": "上传文档",
+      "description": "接收 PDF、Word、TXT 等知识库文档。",
+      "tag": "user input",
+      "x": 4,
+      "y": 10,
+      "width": 18,
+      "height": 18
+    },
+    {
+      "id": "node-2",
+      "laneId": "lane-1",
+      "type": "agent",
+      "title": "文档解析与清洗",
+      "description": "提取正文内容，统一格式，去噪并保留来源元数据。",
+      "tag": "parser",
+      "x": 28,
+      "y": 10,
+      "width": 20,
+      "height": 18
+    },
+    {
+      "id": "node-3",
+      "laneId": "lane-1",
+      "type": "shared",
+      "title": "结构化文本块",
+      "description": "按标题、段落和语义边界进行 chunking，生成带 metadata 的文本块。",
+      "tag": "shared artifact",
+      "x": 54,
+      "y": 10,
+      "width": 20,
+      "height": 20
+    },
+    {
+      "id": "node-4",
+      "laneId": "lane-2",
+      "type": "agent",
+      "title": "向量索引构建",
+      "description": "对文本块生成 embedding，并写入向量数据库。",
+      "tag": "embedding",
+      "x": 8,
+      "y": 34,
+      "width": 20,
+      "height": 18
+    },
+    {
+      "id": "node-5",
+      "laneId": "lane-2",
+      "type": "agent",
+      "title": "关键词索引构建",
+      "description": "分词、关键词提取并建立倒排索引。",
+      "tag": "inverted index",
+      "x": 34,
+      "y": 34,
+      "width": 20,
+      "height": 18
+    },
+    {
+      "id": "node-6",
+      "laneId": "lane-2",
+      "type": "agent",
+      "title": "图索引构建",
+      "description": "抽取实体、关系和社区，构建 GraphRAG 知识图谱。",
+      "tag": "graph index",
+      "x": 60,
+      "y": 34,
+      "width": 21,
+      "height": 18
+    },
+    {
+      "id": "node-7",
+      "laneId": "lane-2",
+      "type": "shared",
+      "title": "多路索引仓库",
+      "description": "统一管理向量索引、关键词索引和图索引。",
+      "tag": "retrieval assets",
+      "x": 86,
+      "y": 34,
+      "width": 20,
+      "height": 20
+    },
+    {
+      "id": "node-8",
+      "laneId": "lane-3",
+      "type": "default",
+      "title": "用户问题",
+      "description": "接收用户查询，并触发混合检索流程。",
+      "tag": "query",
+      "x": 4,
+      "y": 58,
+      "width": 18,
+      "height": 18
+    },
+    {
+      "id": "node-9",
+      "laneId": "lane-3",
+      "type": "agent",
+      "title": "查询改写与扩展",
+      "description": "执行 query rewrite、术语扩展和实体识别，提升召回率。",
+      "tag": "query optimization",
+      "x": 26,
+      "y": 58,
+      "width": 22,
+      "height": 18
+    },
+    {
+      "id": "node-10",
+      "laneId": "lane-3",
+      "type": "agent",
+      "title": "混合检索与融合",
+      "description": "并行执行向量检索、关键词检索和图检索，并通过 RRF 或加权方式融合结果。",
+      "tag": "hybrid retrieval",
+      "x": 54,
+      "y": 58,
+      "width": 24,
+      "height": 20
+    },
+    {
+      "id": "node-11",
+      "laneId": "lane-3",
+      "type": "agent",
+      "title": "重排序",
+      "description": "对 Top-K 结果做 rerank，输出最相关证据片段与图上下文。",
+      "tag": "reranker",
+      "x": 84,
+      "y": 58,
+      "width": 18,
+      "height": 18
+    },
+    {
+      "id": "node-12",
+      "laneId": "lane-4",
+      "type": "shared",
+      "title": "增强上下文",
+      "description": "组合文本证据、图谱节点、关系路径和来源元数据，形成最终 prompt context。",
+      "tag": "context pack",
+      "x": 18,
+      "y": 82,
+      "width": 24,
+      "height": 20
+    },
+    {
+      "id": "node-13",
+      "laneId": "lane-4",
+      "type": "agent",
+      "title": "LLM 回答生成",
+      "description": "基于增强上下文生成答案，并可附带引用与推理说明。",
+      "tag": "generation",
+      "x": 50,
+      "y": 82,
+      "width": 22,
+      "height": 18
+    },
+    {
+      "id": "node-14",
+      "laneId": "lane-4",
+      "type": "output",
+      "title": "最终回答",
+      "description": "输出用户可读答案、引用来源和可选的图谱解释。",
+      "tag": "final output",
+      "x": 80,
+      "y": 82,
+      "width": 18,
+      "height": 18
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "fromNodeId": "node-1",
+      "toNodeId": "node-2",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-2",
+      "fromNodeId": "node-2",
+      "toNodeId": "node-3",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-3",
+      "fromNodeId": "node-3",
+      "toNodeId": "node-4",
+      "emphasis": "soft"
+    },
+    {
+      "id": "edge-4",
+      "fromNodeId": "node-3",
+      "toNodeId": "node-5",
+      "emphasis": "soft"
+    },
+    {
+      "id": "edge-5",
+      "fromNodeId": "node-3",
+      "toNodeId": "node-6",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-6",
+      "fromNodeId": "node-4",
+      "toNodeId": "node-7",
+      "emphasis": "soft"
+    },
+    {
+      "id": "edge-7",
+      "fromNodeId": "node-5",
+      "toNodeId": "node-7",
+      "emphasis": "soft"
+    },
+    {
+      "id": "edge-8",
+      "fromNodeId": "node-6",
+      "toNodeId": "node-7",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-9",
+      "fromNodeId": "node-8",
+      "toNodeId": "node-9",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-10",
+      "fromNodeId": "node-9",
+      "toNodeId": "node-10",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-11",
+      "fromNodeId": "node-7",
+      "toNodeId": "node-10",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-12",
+      "fromNodeId": "node-10",
+      "toNodeId": "node-11",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-13",
+      "fromNodeId": "node-11",
+      "toNodeId": "node-12",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-14",
+      "fromNodeId": "node-12",
+      "toNodeId": "node-13",
+      "emphasis": "theme"
+    },
+    {
+      "id": "edge-15",
+      "fromNodeId": "node-13",
+      "toNodeId": "node-14",
+      "emphasis": "theme"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { Diagram, EdgeEmphasis, NodeType, Selection, Theme } from '../../model/diagram'
 import type { Messages } from '../../i18n'
-import type { ThemePresetId } from '../../data/themePresets'
+import { themePresets, type ThemePresetId } from '../../data/themePresets'
 import { getSectionTitle } from '../../utils/sectionLabels'
 
 type InspectorProps = {
@@ -108,15 +108,14 @@ export function Inspector({
           <div className="inspector__form-grid">
             <label className="inspector__field">
               <span>{messages.inspector.themePresetField}</span>
-              <select value={activeThemePresetId ?? 'custom'} onChange={(event) => {
-                if (event.target.value !== 'custom') {
-                  onApplyThemePreset(event.target.value as ThemePresetId)
-                }
+              <select value={activeThemePresetId ?? themePresets[0].id} onChange={(event) => {
+                onApplyThemePreset(event.target.value as ThemePresetId)
               }}>
-                <option value="accenture-purple">{messages.themePresets['accenture-purple']}</option>
-                <option value="lenovo-red">{messages.themePresets['lenovo-red']}</option>
-                <option value="pfizer-blue">{messages.themePresets['pfizer-blue']}</option>
-                <option value="custom">{messages.themePresets.custom}</option>
+                {themePresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {messages.themePresets[preset.id] ?? preset.theme.name}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="inspector__field">

@@ -1,7 +1,7 @@
 import type { Diagram } from '../model/diagram'
 import { getThemePresetById } from './themePresets'
 
-const defaultTheme = getThemePresetById('accenture-purple')?.theme
+const defaultTheme = getThemePresetById('violet')?.theme
 
 export const defaultDiagram: Diagram = {
   meta: {

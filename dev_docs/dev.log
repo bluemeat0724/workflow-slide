@@ -16,11 +16,112 @@
 - 实现节点高度自适应，按实际内容测量并自动更新连线。
 - 实现画布内拖线创建连线。
 - 实现节点双击原位编辑标题、描述和标签。
-- 新增三套主题预设：Accenture 紫色、联想红色、Pfizer 蓝色。
-- 默认主题切换为 Accenture 紫色。
+- 新增三套主题预设：紫色、红色、蓝色。
+- 默认主题切换为紫色。
 - 实现画布框选多节点。
 - 实现节点和连线右键菜单。
 - 实现本地自动保存与草稿恢复。
 - 新增工具栏“清空本地草稿”能力。
 - 处理当前环境下 Vite 版本兼容问题，完成可用构建配置。
 - 当前项目已通过 `npm run build` 和 `npm run lint`。
+
+2026-05-04
+
+- 完成 workflow agent Batch A：补齐共享 API contract、AI 环境配置、OpenAI client 封装和内存 session store。
+- 新增 workflow agent 状态机，支持 `collecting_requirements`、`awaiting_execution_confirmation`、`executing`、`completed`、`error`。
+- 完成 workflow agent Batch B：实现主 agent 对话编排、sub agent prefix JSON 生成、JSON fence 解析、diagram normalizer、deterministic layout 和执行服务。
+- 在 `app/server/index.mjs` 接入三条 AI 路由：
+  - `POST /api/ai/workflow/sessions`
+  - `POST /api/ai/workflow/sessions/:sessionId/messages`
+  - `POST /api/ai/workflow/sessions/:sessionId/execute`
+- 新增服务端 AI 模块测试，覆盖 session store、conversation agent、JSON sub-agent、normalizer、execution service。
+- 完成 workflow agent Batch C：前端新增 API client 能力、agent 状态管理、右下角浮窗入口、会话窗口和执行后自动加载 workflow。
+- 本地模式下，AI 结果直接替换当前画布；远端模式下，继续复用 `persistenceService.importDiagram()`。
+- 完成 Batch D 联调与加固：修复首次发送消息时 welcome 覆盖、用户消息重复追加、执行 warnings 未展示等问题。
+- 修复 AI workflow agent 上游鉴权错误表现：
+  - 服务端把模型供应商返回的 `401/403` 归一化为 `AI_CONFIGURATION_ERROR`
+  - 避免本地 `/api/ai/workflow/...` 直接向前端透传误导性的 401
+  - 前端 agent 浮窗直接展示服务端返回的具体错误文案
+- 调整 AI 子 agent 默认配置：
+  - `WORKFLOW_JSON_BASE_URL` 未配置时默认复用 `OPENAI_API_BASE`
+  - 更新 `README.md` 和 `app/.env.example`，避免默认示例把同一 key 指向不兼容 provider
+- 补充服务端能力探测接口：
+  - `GET /api/health` 返回数据库能力与 `supportsAi`
+  - 前端改为依据 health probe 控制 agent 入口显隐
+  - 修复 `local-only` 模式下残留 `VITE_API_BASE_URL` 仍可能显示 agent 的问题
+- 修复 DeepSeek prefix 执行配置：
+  - 当 `OPENAI_API_BASE=https://api.deepseek.com` 且未单独配置 `WORKFLOW_JSON_BASE_URL` 时
+  - sub agent 自动改用 `https://api.deepseek.com/beta`
+  - 补充 `config` 单测，覆盖默认推导逻辑
+- 优化 AI agent 交互：
+  - 右下角入口改为可鼠标拖拽移动，拖拽后保留当前位置
+  - 原悬浮弹窗改为右侧抽屉式侧栏，扩大对话与方案确认空间
+  - 输入区支持 `Ctrl/Command + Enter` 发送；执行按钮激活时按 `Enter` 直接执行
+  - 为发送、执行按钮补充 hover 提示文案，明确快捷键和行为
+- 优化 AI agent chat 空状态布局：
+  - 将面板主布局从固定 grid 行调整为纵向 flex，避免无消息时 composer 落入弹性行
+  - 修正空状态下输入框过高、发送/执行按钮被纵向拉伸的问题
+  - 为空状态设置更合理的 textarea 高度和按钮对齐规则
+- 调整 AI agent 会话上下文策略：
+  - 前端发送消息时附带最近多轮 message history
+  - 前后端均限制为仅保留最新 10 轮 user turn 上下文
+  - 后端 conversation agent 不再依赖内存 session 中累积的消息历史，避免失败重试导致上下文无限膨胀
+- 增强 AI conversation agent 诊断能力：
+  - 当上游返回空 content 或非 JSON 文本时，返回结构化 details
+  - 服务端输出受控诊断日志，包含 `finish_reason`、content 形态、part 类型和 refusal 信息
+  - 补充单测覆盖空响应诊断路径
+- 新增 `workflowConversationPayloadDiagnosis.test.mjs`：
+  - 基于 `dev_docs/test_payload.json` 复现多轮对话请求
+  - 用假上游返回空字符串 `content`，稳定复现 `AI_RESPONSE_INVALID`
+  - 断言实际发送给 conversation agent 的 message 序列，确认问题发生在 provider 返回空正文，而非本地 history 组装阶段
+- 修复主题联动缺失：
+  - HTML 导出箭头 marker 不再写死红色，改为跟随当前 workflow 主题色
+  - 主题变量提升到应用根节点，工具栏、侧边栏、属性面板、库面板和 agent 面板统一读取当前主题色
+  - 去除系统层固定红色/紫色残留，默认紫色主题下系统色与画布色保持一致
+- 清理主题预设命名：
+  - 移除预设 id、主题名称、文档示例中的品牌命名，统一改为纯颜色命名
+  - 扩展内置主题为紫色、绯红、天蓝、琥珀、石墨、青碧、青绿七套预设
+  - 前端主题下拉框改为按预设数组生成，避免新增主题时多处手工维护
+- 梳理 agent 对话到 workflow 生成的端到端链路，并补充到 `README.md`：
+  - 覆盖前端 health probe、session 创建、最近 10 轮 history 发送
+  - 覆盖 conversation agent 的 proposal/state 产出、proposal version 防陈旧执行
+  - 覆盖 sub-agent JSON 生成、normalizer/layout 处理，以及本地/远端回写路径
+- 调整 AI agent 主题链路：
+  - 创建 workflow session 时前端会附带当前完整 theme 快照
+  - 服务端执行阶段优先使用 session theme 归一化生成结果，避免仅依赖 preset id
+  - 服务端同时兼容旧主题 preset 别名，避免 `violet` / 旧 preset 名混用导致 warning
+- 优化 conversation agent 接收消息链路：
+  - 在每次 conversation prompt 中显式注入当前 session state、proposal 和 proposal version
+  - 降低模型仅凭 history 自行恢复“是否正在等待执行确认”上下文的歧义
+  - 补充回归测试，覆盖 `awaiting_execution_confirmation` 后继续发送“还可以怎么优化”这类需求更新消息
+- 调整 conversation agent 返回格式兼容性：
+  - 移除对 `response_format={ type: 'json_object' }` 的强依赖
+  - 改为在 prompt 中要求模型返回单个 ```json fenced block，并由服务端抽取 JSON
+  - 记录 conversation agent 原始模型返回，便于排查不同模型服务的兼容性问题
+- 补充 fenced JSON 解析兼容性测试：
+  - 验证当 ```json block 前后存在额外说明文字时，parser 仍会优先抽取 block 内 JSON
+  - 补充 conversation agent 回归测试，确认带外围文本的返回不会影响 proposal/state 解析
+- 强化 conversation agent system prompt：
+  - 更具体地描述 `reply`、`state`、`canExecute`、`proposal.title`、`proposal.summary` 的语义和返回条件
+  - 修正 prompt 中与状态机不一致的 `ready_to_execute` 文案，统一为 `awaiting_execution_confirmation`
+- 优化 agent refinement 链路：
+  - 前端在 create session / send message / execute 三个入口都附带当前画布 `Diagram`
+  - session store 新增 `referenceDiagram`，在 conversation 和 execution 两侧都能复用
+  - conversation prompt 显式注入当前 reference diagram，便于把“优化/扩展/新增分支”解释为对现图微调
+  - workflow JSON sub-agent prompt 显式注入 reference diagram JSON，要求在兼容 confirmed proposal 的前提下优先复用现有结构，而不是完全从零生成
+  - 补充 session store、execution service、workflow JSON sub-agent 单测，覆盖 current diagram 透传与 reference context 生效场景
+- 修复 agent 主题变更未传递到 execute 的问题：
+  - conversation agent 必须结构化返回 `proposal.themePresetId`，并从项目内置 theme preset 列表中选择最接近的目标主题
+  - conversation prompt 与 workflow JSON sub-agent prompt 都会显式注入当前目标主题和可用 theme preset 定义，避免模型只在自然语言里描述“改成蓝色”却不更新结构化主题选择
+  - execution service 在收到新的 proposal 后会同步更新 session theme selection，execute 阶段优先使用会话内最新主题，而不是继续沿用创建 session 时的旧主题
+  - 补充 execution service 回归测试，覆盖“当前画布仍是紫色，但用户要求改成蓝色主题后 execute 输出应为蓝色”场景
+- 当前项目已通过：
+  - `cd app && npm run test`
+  - `cd app && npm run lint`
+  - `cd app && npm run build`
+
+- 代码审查：检查未 commit 的全部变更代码质量，生成优化文档 `dev_docs/code_review_optimization.md`
+  - 发现 1 个严重错误：`WorkflowAgentWindow.tsx` 中 React Hooks 在早期 return 后调用（lint error）
+  - 高优先级问题：App.tsx 单体过大（1200+ 行）、前后端主题预设重复、`ensureAgentSession` 竞态条件、`WorkflowChatMessageList` 硬编码字符串缺少 i18n
+  - 审查覆盖：32 个变更文件 + 14 个新增测试（49 cases 全通过）、build 通过
+  - 当前 lint：2 errors（均为 WorkflowAgentWindow hooks 违规）

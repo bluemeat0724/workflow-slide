@@ -5,6 +5,11 @@
   gap: 18px;
   padding: 20px;
   overflow: hidden;
+  color: var(--theme-text-primary, #0b0b0f);
+  background:
+    radial-gradient(circle at 12% 18%, var(--theme-accent-11, rgba(125, 44, 255, 0.11)), transparent 26%),
+    radial-gradient(circle at 84% 74%, var(--theme-accent-08, rgba(125, 44, 255, 0.08)), transparent 24%),
+    linear-gradient(130deg, var(--theme-bg-primary, #ffffff), rgba(255, 255, 255, 0.94) 56%, rgba(255, 255, 255, 0.98));
 }
 
 .app-hidden-input {
@@ -13,7 +18,7 @@
 
 .app-status {
   margin: 0 6px;
-  color: #a80000;
+  color: var(--theme-accent-deep, #5b16c7);
   font-size: 0.88rem;
 }
 
@@ -48,13 +53,13 @@
   font-size: 0.75rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #a80000;
+  color: var(--theme-accent-deep, #5b16c7);
   font-weight: 700;
 }
 
 .toolbar__subtitle {
   margin: 0;
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   max-width: 42rem;
 }
 
@@ -69,7 +74,7 @@
 .toolbar__locale {
   display: grid;
   gap: 6px;
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   font-size: 0.86rem;
 }
 
@@ -79,7 +84,7 @@
   border: 1px solid rgba(11, 11, 15, 0.12);
   border-radius: 999px;
   background: #ffffff;
-  color: #0b0b0f;
+  color: var(--theme-text-primary, #0b0b0f);
 }
 
 .toolbar__locale select {
@@ -94,7 +99,7 @@
 }
 
 .toolbar__button {
-  background: linear-gradient(135deg, rgba(209, 0, 0, 0.1), rgba(255, 255, 255, 0.96));
+  background: linear-gradient(135deg, var(--theme-accent-10, rgba(125, 44, 255, 0.1)), rgba(255, 255, 255, 0.96));
 }
 
 .toolbar__button--ghost {
@@ -128,6 +133,229 @@
   padding: 24px;
 }
 
+.workflow-agent-launcher {
+  position: fixed;
+  z-index: 18;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border: 1px solid rgba(11, 11, 15, 0.08);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--theme-accent, #7d2cff), var(--theme-accent-deep, #5b16c7));
+  color: #fff7f0;
+  box-shadow: 0 18px 36px var(--theme-accent-28, rgba(125, 44, 255, 0.28));
+  font-weight: 700;
+  cursor: grab;
+  user-select: none;
+}
+
+.workflow-agent-launcher.is-open {
+  transform: translateY(2px);
+}
+
+.workflow-agent-launcher:active {
+  cursor: grabbing;
+}
+
+.workflow-agent-launcher:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.workflow-agent-launcher__pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #fff7f0;
+  box-shadow: 0 0 0 0 var(--theme-accent-42, rgba(125, 44, 255, 0.42));
+  animation: workflow-agent-pulse 1.8s infinite;
+}
+
+.workflow-agent-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  background: rgba(11, 11, 15, 0.16);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+}
+
+.workflow-agent-window {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  bottom: 16px;
+  z-index: 20;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid rgba(11, 11, 15, 0.08);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at top right, var(--theme-accent-08, rgba(125, 44, 255, 0.08)), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.94));
+  box-shadow: 0 28px 60px rgba(11, 11, 15, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.workflow-agent-window__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.workflow-agent-window__header h2 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+  font-family: "Iowan Old Style", "Baskerville", "Songti SC", Georgia, serif;
+}
+
+.workflow-agent-window__header p,
+.workflow-agent-window__proposal p,
+.workflow-agent-window__empty,
+.workflow-agent-window__message p,
+.workflow-agent-window__error {
+  margin: 0;
+  color: var(--theme-text-muted, #555563);
+}
+
+.workflow-agent-window__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--theme-accent-deep, #5b16c7);
+  font-weight: 700;
+}
+
+.workflow-agent-window__close,
+.workflow-agent-window__button {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 11, 15, 0.12);
+  font-weight: 600;
+}
+
+.workflow-agent-window__close {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.workflow-agent-window__proposal,
+.workflow-agent-window__message,
+.workflow-agent-window__empty {
+  padding: 14px 16px;
+  border: 1px solid rgba(11, 11, 15, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.workflow-agent-window__proposal strong,
+.workflow-agent-window__message header span {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.workflow-agent-window__messages {
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  padding-right: 4px;
+  align-content: start;
+}
+
+.workflow-agent-window__messages--empty {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.workflow-agent-window__message--assistant {
+  background: linear-gradient(135deg, var(--theme-accent-06, rgba(125, 44, 255, 0.06)), rgba(255, 255, 255, 0.86));
+}
+
+.workflow-agent-window__message--user {
+  background: linear-gradient(135deg, rgba(11, 11, 15, 0.03), rgba(255, 255, 255, 0.9));
+}
+
+.workflow-agent-window__message header {
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-accent-deep, #5b16c7);
+}
+
+.workflow-agent-window__composer {
+  display: grid;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.workflow-agent-window__composer textarea {
+  width: 100%;
+  resize: none;
+  min-height: 140px;
+  max-height: 240px;
+  padding: 14px 16px;
+  border: 1px solid rgba(11, 11, 15, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--theme-text-primary, #0b0b0f);
+  line-height: 1.55;
+}
+
+.workflow-agent-window__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.workflow-agent-window__button {
+  min-width: 104px;
+}
+
+.workflow-agent-window--empty {
+  justify-content: flex-start;
+}
+
+.workflow-agent-window__composer--empty textarea {
+  min-height: 180px;
+}
+
+.workflow-agent-window__actions--empty {
+  justify-content: flex-end;
+}
+
+.workflow-agent-window__button {
+  background: linear-gradient(135deg, var(--theme-accent-10, rgba(125, 44, 255, 0.1)), rgba(255, 255, 255, 0.98));
+}
+
+.workflow-agent-window__button--ghost {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.workflow-agent-window__button:disabled,
+.workflow-agent-window__composer textarea:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.workflow-agent-window__error {
+  color: var(--theme-accent-deep, #5b16c7);
+  font-size: 0.84rem;
+}
+
 .diagram-library {
   width: min(460px, 100%);
   max-height: calc(100vh - 48px);
@@ -158,7 +386,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #a80000;
+  color: var(--theme-accent-deep, #5b16c7);
   font-weight: 700;
 }
 
@@ -178,7 +406,7 @@
   border: 1px solid rgba(11, 11, 15, 0.12);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
-  color: #0b0b0f;
+  color: var(--theme-text-primary, #0b0b0f);
 }
 
 .diagram-library__item {
@@ -193,7 +421,7 @@
 }
 
 .diagram-library__item.is-active {
-  outline: 2px solid rgba(209, 0, 0, 0.28);
+  outline: 2px solid var(--theme-accent-28, rgba(125, 44, 255, 0.28));
 }
 
 .diagram-library__item-main {
@@ -208,13 +436,13 @@
 .diagram-library__item-main span,
 .diagram-library__item-main em,
 .diagram-library__empty {
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   font-size: 0.84rem;
 }
 
 .diagram-library__item-main em {
   font-style: normal;
-  color: #a80000;
+  color: var(--theme-accent-deep, #5b16c7);
 }
 
 .diagram-library__item-actions {
@@ -225,7 +453,7 @@
 }
 
 .diagram-library__delete-button {
-  color: #a80000;
+  color: var(--theme-accent-deep, #5b16c7);
 }
 
 .diagram-library__footer {
@@ -234,7 +462,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   font-size: 0.84rem;
 }
 
@@ -310,7 +538,7 @@
 }
 
 .sidebar__item span {
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   font-size: 0.82rem;
 }
 
@@ -318,7 +546,7 @@
 .lane.is-selected,
 .node-card.is-selected,
 .edge-path.is-selected {
-  outline: 2px solid rgba(209, 0, 0, 0.34);
+  outline: 2px solid var(--theme-accent-34, rgba(125, 44, 255, 0.34));
   outline-offset: 0;
 }
 
@@ -333,7 +561,7 @@
   background:
     radial-gradient(circle at 12% 18%, var(--theme-accent-11, rgba(125, 44, 255, 0.11)), transparent 26%),
     radial-gradient(circle at 84% 74%, var(--theme-accent-08, rgba(125, 44, 255, 0.08)), transparent 24%),
-    linear-gradient(130deg, var(--theme-bg-primary, rgba(255, 255, 255, 1)), rgba(255, 255, 255, 0.94) 56%, rgba(255, 250, 250, 0.98));
+    linear-gradient(130deg, var(--theme-bg-primary, rgba(255, 255, 255, 1)), rgba(255, 255, 255, 0.94) 56%, rgba(255, 255, 255, 0.98));
 }
 
 .canvas-panel::before {
@@ -344,7 +572,7 @@
     linear-gradient(rgba(11, 11, 15, 0.07) 1px, transparent 1px),
     linear-gradient(90deg, rgba(11, 11, 15, 0.07) 1px, transparent 1px),
     radial-gradient(circle at 25% 80%, rgba(11, 11, 15, 0.03), transparent 35%),
-    repeating-linear-gradient(115deg, transparent 0, transparent 3.7rem, rgba(125, 44, 255, 0.025) 3.7rem, rgba(125, 44, 255, 0.025) 3.82rem);
+    repeating-linear-gradient(115deg, transparent 0, transparent 3.7rem, var(--theme-accent-025, rgba(125, 44, 255, 0.025)) 3.7rem, var(--theme-accent-025, rgba(125, 44, 255, 0.025)) 3.82rem);
   background-size: 2rem 2rem, 2rem 2rem, auto, auto;
   opacity: 0.92;
 }
@@ -399,8 +627,8 @@
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(125, 44, 255, 0.045), transparent 18%),
-    linear-gradient(90deg, transparent 0%, rgba(125, 44, 255, 0.028) 44%, rgba(125, 44, 255, 0.07) 52%, rgba(125, 44, 255, 0.028) 60%, transparent 100%);
+    linear-gradient(180deg, var(--theme-accent-045, rgba(125, 44, 255, 0.045)), transparent 18%),
+    linear-gradient(90deg, transparent 0%, var(--theme-accent-028, rgba(125, 44, 255, 0.028)) 44%, var(--theme-accent-07, rgba(125, 44, 255, 0.07)) 52%, var(--theme-accent-028, rgba(125, 44, 255, 0.028)) 60%, transparent 100%);
 }
 
 .lane {
@@ -673,7 +901,7 @@
 }
 
 .inspector__field span {
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   font-size: 0.8rem;
 }
 
@@ -685,7 +913,7 @@
   border-radius: 14px;
   border: 1px solid rgba(11, 11, 15, 0.12);
   background: rgba(255, 255, 255, 0.92);
-  color: #0b0b0f;
+  color: var(--theme-text-primary, #0b0b0f);
 }
 
 .inspector__field textarea {
@@ -712,7 +940,7 @@
 
 .inspector__details dt {
   margin-bottom: 6px;
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
   font-size: 0.8rem;
 }
 
@@ -723,16 +951,16 @@
 
 .inspector__empty {
   margin: 0;
-  color: #555563;
+  color: var(--theme-text-muted, #555563);
 }
 
 .inspector__danger-button {
   margin-top: 14px;
   padding: 10px 14px;
-  border: 1px solid rgba(168, 0, 0, 0.22);
+  border: 1px solid var(--theme-accent-24, rgba(125, 44, 255, 0.24));
   border-radius: 999px;
-  background: rgba(209, 0, 0, 0.06);
-  color: #a80000;
+  background: var(--theme-accent-06, rgba(125, 44, 255, 0.06));
+  color: var(--theme-accent-deep, #5b16c7);
   font-weight: 600;
 }
 
@@ -741,8 +969,8 @@
   padding: 10px 14px;
   border: 1px solid rgba(11, 11, 15, 0.12);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(209, 0, 0, 0.1), rgba(255, 255, 255, 0.96));
-  color: #0b0b0f;
+  background: linear-gradient(135deg, var(--theme-accent-10, rgba(125, 44, 255, 0.1)), rgba(255, 255, 255, 0.96));
+  color: var(--theme-text-primary, #0b0b0f);
   font-weight: 600;
 }
 
@@ -754,6 +982,20 @@
 @keyframes dash {
   to {
     stroke-dashoffset: -44;
+  }
+}
+
+@keyframes workflow-agent-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 247, 240, 0.44);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 247, 240, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 247, 240, 0);
   }
 }
 
@@ -795,5 +1037,26 @@
   .canvas-panel {
     height: auto;
     min-height: 560px;
+  }
+
+  .workflow-agent-launcher {
+    max-width: calc(100vw - 24px);
+  }
+
+  .workflow-agent-backdrop {
+    padding: 12px;
+  }
+
+  .workflow-agent-window {
+    right: 12px;
+    left: 12px;
+    top: 12px;
+    bottom: 12px;
+    width: auto;
+    max-height: calc(100vh - 24px);
+  }
+
+  .workflow-agent-window__composer--empty textarea {
+    min-height: 160px;
   }
 }

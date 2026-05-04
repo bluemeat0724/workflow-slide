@@ -79,7 +79,7 @@ body {
   background:
     radial-gradient(circle at 12% 18%, ${withAlpha(diagram.theme.accent, 0.11)}, transparent 26%),
     radial-gradient(circle at 84% 74%, ${withAlpha(diagram.theme.accent, 0.08)}, transparent 24%),
-    linear-gradient(130deg, ${diagram.theme.bgPrimary}, rgba(255,255,255,.94) 56%, rgba(255,250,250,.98));
+    linear-gradient(130deg, ${diagram.theme.bgPrimary}, rgba(255,255,255,.94) 56%, rgba(255,255,255,.98));
   color: var(--text-primary);
   font-family: "Avenir Next Condensed", "DIN Condensed", "Microsoft YaHei", sans-serif;
 }
@@ -116,7 +116,7 @@ body {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(209,0,0,.045), transparent 18%),
+    linear-gradient(180deg, ${withAlpha(diagram.theme.accent, 0.045)}, transparent 18%),
     linear-gradient(90deg, transparent 0%, ${withAlpha(diagram.theme.accent, 0.028)} 44%, ${withAlpha(diagram.theme.accent, 0.07)} 52%, ${withAlpha(diagram.theme.accent, 0.028)} 60%, transparent 100%);
 }
 .lane {
@@ -229,10 +229,10 @@ body {
       <svg class="edge-layer" viewBox="0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <marker id="arrow-theme" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L0,6 L8,3 z" fill="rgba(209,0,0,.76)"></path>
+            <path d="M0,0 L0,6 L8,3 z" fill="${escapeHtml(diagram.theme.accent)}"></path>
           </marker>
           <marker id="arrow-soft" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L0,6 L8,3 z" fill="rgba(11,11,15,.28)"></path>
+            <path d="M0,0 L0,6 L8,3 z" fill="${escapeHtml(diagram.theme.lineSoft)}"></path>
           </marker>
         </defs>
         ${edgeMarkup}

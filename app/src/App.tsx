@@ -1,6 +1,8 @@
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from 'react'
-import { createDiagramApiClient } from './api/client'
-import type { DiagramListItem, DiagramRevision } from './api/contracts'
+import { ApiClientError, createDiagramApiClient } from './api/client'
+import type { DiagramListItem, DiagramRevision, WorkflowAgentMessage, WorkflowAgentProposal, WorkflowAgentState } from './api/contracts'
+import { WorkflowAgentLauncher } from './components/agent/WorkflowAgentLauncher'
+import { WorkflowAgentWindow } from './components/agent/WorkflowAgentWindow'
 import { Canvas } from './components/canvas/Canvas'
 import { Inspector } from './components/inspector/Inspector'
 import { DiagramLibrary } from './components/library/DiagramLibrary'
@@ -17,15 +19,25 @@ import { downloadTextFile, slugifyFileName } from './utils/download'
 import { generateStandaloneHtml } from './utils/exportHtml'
 import { createId } from './utils/ids'
 import { parseDiagramJson, serializeDiagramJson } from './utils/json'
+import { getThemeCssVars } from './utils/theme'
 
 const LOCAL_DRAFT_KEY = 'workflow-tool-draft'
 const LOCAL_DIAGRAM_ID = 'local-default'
 const LOCAL_PERSISTENCE_CACHE_KEY = `workflow-tool-diagram:${LOCAL_DIAGRAM_ID}`
 const SCHEMA_VERSION = '1.0'
+const AGENT_HISTORY_MAX_TURNS = 10
+const AGENT_LAUNCHER_STORAGE_KEY = 'workflow-agent-launcher-position'
+const AGENT_LAUNCHER_MARGIN = 24
+const AGENT_LAUNCHER_FALLBACK_WIDTH = 180
+const AGENT_LAUNCHER_FALLBACK_HEIGHT = 56
 const runtimeConfig = getRuntimeConfig()
-const CAPABILITIES = runtimeConfig.capabilities
+const STATIC_CAPABILITIES = runtimeConfig.capabilities
+const API_BASE_URL = runtimeConfig.apiBaseUrl
+const API_CLIENT = API_BASE_URL
+  ? createDiagramApiClient({ baseUrl: API_BASE_URL })
+  : null
 const SEARCH_PARAMS = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
-const REMOTE_DIAGRAM_ID = CAPABILITIES.supportsDatabase
+const REMOTE_DIAGRAM_ID = STATIC_CAPABILITIES.supportsDatabase
   ? (SEARCH_PARAMS.get('diagramId')?.trim() || null)
   : null
 const FORCE_NEW_DIAGRAM = !REMOTE_DIAGRAM_ID && SEARCH_PARAMS.get('new') === '1'
@@ -34,6 +46,113 @@ const INITIAL_LOCALE: Locale | null = localeFromSearch === 'en-US' || localeFrom
   ? localeFromSearch
   : null
 const initialState = loadInitialDiagram()
+
+function createAgentUiMessage(role: WorkflowAgentMessage['role'], content: string): WorkflowAgentMessage {
+  return {
+    id: createId('agent-message'),
+    role,
+    content,
+    createdAt: new Date().toISOString(),
+  }
+}
+
+function sliceRecentAgentTurns(messages: WorkflowAgentMessage[], maxUserTurns: number) {
+  if (maxUserTurns <= 0 || messages.length === 0) {
+    return []
+  }
+
+  let userTurnCount = 0
+  let startIndex = 0
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === 'user') {
+      userTurnCount += 1
+      if (userTurnCount > maxUserTurns) {
+        startIndex = index + 1
+        while (startIndex < messages.length && messages[startIndex].role !== 'user') {
+          startIndex += 1
+        }
+        break
+      }
+    }
+  }
+
+  return messages.slice(startIndex)
+}
+
+function getApiErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof ApiClientError) {
+    return error.payload?.message ?? error.message ?? fallbackMessage
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallbackMessage
+}
+
+function isExecuteShortcut(value: string, locale: Locale) {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) {
+    return false
+  }
+
+  const shortcuts = locale === 'zh-CN'
+    ? ['执行', '确认执行', '开始执行']
+    : ['execute', 'run', 'confirm']
+
+  return shortcuts.includes(normalized)
+}
+
+type AgentLauncherPosition = {
+  x: number
+  y: number
+}
+
+function clampValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function getLauncherBounds(width: number, height: number) {
+  return {
+    minX: AGENT_LAUNCHER_MARGIN,
+    minY: AGENT_LAUNCHER_MARGIN,
+    maxX: Math.max(AGENT_LAUNCHER_MARGIN, window.innerWidth - width - AGENT_LAUNCHER_MARGIN),
+    maxY: Math.max(AGENT_LAUNCHER_MARGIN, window.innerHeight - height - AGENT_LAUNCHER_MARGIN),
+  }
+}
+
+function getDefaultLauncherPosition(): AgentLauncherPosition {
+  const bounds = getLauncherBounds(AGENT_LAUNCHER_FALLBACK_WIDTH, AGENT_LAUNCHER_FALLBACK_HEIGHT)
+
+  return {
+    x: bounds.maxX,
+    y: bounds.maxY,
+  }
+}
+
+function loadLauncherPosition(): AgentLauncherPosition {
+  if (typeof window === 'undefined') {
+    return getDefaultLauncherPosition()
+  }
+
+  const rawValue = window.localStorage.getItem(AGENT_LAUNCHER_STORAGE_KEY)
+  if (!rawValue) {
+    return getDefaultLauncherPosition()
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as { x?: number; y?: number }
+    if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+      return { x: parsed.x, y: parsed.y }
+    }
+  } catch {
+    window.localStorage.removeItem(AGENT_LAUNCHER_STORAGE_KEY)
+  }
+
+  return getDefaultLauncherPosition()
+}
 
 function loadInitialDiagram() {
   if (FORCE_NEW_DIAGRAM) {
@@ -53,11 +172,10 @@ function loadInitialDiagram() {
 }
 
 function App() {
-  const api = runtimeConfig.apiBaseUrl
-    ? createDiagramApiClient({ baseUrl: runtimeConfig.apiBaseUrl })
-    : null
+  const api = API_CLIENT
   const [editorState, dispatch] = useReducer(editorStateReducer, initialState.diagram, createEditorState)
   const [status, setStatus] = useState(initialState.restored ? getMessages(initialState.diagram.meta.locale).status.draftRestored : '')
+  const [capabilities, setCapabilities] = useState(STATIC_CAPABILITIES)
   const [isCreatingRemote, setIsCreatingRemote] = useState(false)
   const [libraryMode, setLibraryMode] = useState<'diagrams' | 'revisions' | null>(null)
   const [diagramItems, setDiagramItems] = useState<DiagramListItem[]>([])
@@ -68,7 +186,18 @@ function App() {
   const [revisionPage, setRevisionPage] = useState(1)
   const [revisionTotalPages, setRevisionTotalPages] = useState(1)
   const [deletingDiagramId, setDeletingDiagramId] = useState<string | null>(null)
+  const [isAgentOpen, setIsAgentOpen] = useState(false)
+  const [agentSessionId, setAgentSessionId] = useState<string | null>(null)
+  const [agentMessages, setAgentMessages] = useState<WorkflowAgentMessage[]>([])
+  const [agentState, setAgentState] = useState<WorkflowAgentState>('collecting_requirements')
+  const [agentProposal, setAgentProposal] = useState<WorkflowAgentProposal | null>(null)
+  const [agentInput, setAgentInput] = useState('')
+  const [isAgentLoading, setIsAgentLoading] = useState(false)
+  const [isAgentExecuting, setIsAgentExecuting] = useState(false)
+  const [agentError, setAgentError] = useState('')
+  const [agentLauncherPosition, setAgentLauncherPosition] = useState<AgentLauncherPosition>(loadLauncherPosition)
   const importInputRef = useRef<HTMLInputElement | null>(null)
+  const agentLauncherRef = useRef<HTMLButtonElement | null>(null)
   const persistenceRef = useRef<PersistenceService | null>(null)
   const skipNextAutosaveRef = useRef(false)
   const localeRef = useRef(editorState.locale)
@@ -77,14 +206,43 @@ function App() {
   const revisionListRequestIdRef = useRef(0)
   const diagramListAbortRef = useRef<AbortController | null>(null)
   const revisionListAbortRef = useRef<AbortController | null>(null)
+  const agentSessionAbortRef = useRef<AbortController | null>(null)
+  const agentMessageAbortRef = useRef<AbortController | null>(null)
+  const agentExecuteAbortRef = useRef<AbortController | null>(null)
   const [isPersistenceReady, setIsPersistenceReady] = useState(false)
   const { diagram, locale, multiSelection, selection } = editorState
   const messages = getMessages(locale)
   const activeThemePresetId = getThemePresetId(diagram.theme)
+  const supportsAi = capabilities.supportsAi
+  const themeVars = getThemeCssVars(diagram.theme)
 
   useEffect(() => {
     localeRef.current = locale
   }, [locale])
+
+  useEffect(() => {
+    function clampLauncherPosition() {
+      const launcher = agentLauncherRef.current
+      const width = launcher?.offsetWidth ?? AGENT_LAUNCHER_FALLBACK_WIDTH
+      const height = launcher?.offsetHeight ?? AGENT_LAUNCHER_FALLBACK_HEIGHT
+      const bounds = getLauncherBounds(width, height)
+      const nextPosition = {
+        x: clampValue(agentLauncherPosition.x, bounds.minX, bounds.maxX),
+        y: clampValue(agentLauncherPosition.y, bounds.minY, bounds.maxY),
+      }
+
+      if (nextPosition.x !== agentLauncherPosition.x || nextPosition.y !== agentLauncherPosition.y) {
+        setAgentLauncherPosition(nextPosition)
+        window.localStorage.setItem(AGENT_LAUNCHER_STORAGE_KEY, JSON.stringify(nextPosition))
+      }
+    }
+
+    clampLauncherPosition()
+    window.addEventListener('resize', clampLauncherPosition)
+    return () => {
+      window.removeEventListener('resize', clampLauncherPosition)
+    }
+  }, [agentLauncherPosition.x, agentLauncherPosition.y])
 
   function handleLocaleChange(nextLocale: Locale) {
     dispatch({ type: 'set-locale', locale: nextLocale })
@@ -242,7 +400,7 @@ function App() {
       return
     }
 
-    if (CAPABILITIES.supportsDatabase && REMOTE_DIAGRAM_ID) {
+    if (capabilities.supportsDatabase && REMOTE_DIAGRAM_ID) {
       const nextUrl = new URL(window.location.href)
       nextUrl.searchParams.delete('diagramId')
       nextUrl.searchParams.set('new', '1')
@@ -262,7 +420,7 @@ function App() {
   }
 
   async function handleCreateRemote() {
-    if (REMOTE_DIAGRAM_ID || isCreatingRemote || !CAPABILITIES.supportsCreateRemoteDocument || !api) {
+    if (REMOTE_DIAGRAM_ID || isCreatingRemote || !capabilities.supportsCreateRemoteDocument || !api) {
       return
     }
 
@@ -373,7 +531,7 @@ function App() {
   }
 
   async function handleSaveRevision() {
-    if (!REMOTE_DIAGRAM_ID || !persistenceRef.current || !CAPABILITIES.supportsRevisionHistory) {
+    if (!REMOTE_DIAGRAM_ID || !persistenceRef.current || !capabilities.supportsRevisionHistory) {
       return
     }
 
@@ -511,6 +669,218 @@ function App() {
     setStatus(messages.status.draftCleared)
   }
 
+  async function ensureAgentSession() {
+    if (!api) {
+      throw new Error('AI workflow agent requires api access.')
+    }
+
+    if (agentSessionId) {
+      return agentSessionId
+    }
+
+    agentSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    agentSessionAbortRef.current = controller
+
+      const response = await api.createWorkflowSession({
+      locale,
+      themePresetId: activeThemePresetId ?? 'violet',
+      theme: diagram.theme,
+      currentDiagram: diagram,
+    }, controller.signal)
+
+    setAgentSessionId(response.sessionId)
+    setAgentState(response.state)
+    setAgentProposal(null)
+    setAgentMessages((current) => (
+      current.length > 0
+        ? current
+        : [createAgentUiMessage('assistant', response.welcomeMessage)]
+    ))
+    setAgentError('')
+    return response.sessionId
+  }
+
+  async function handleOpenAgent() {
+    setIsAgentOpen(true)
+
+    if (agentSessionId || !api) {
+      return
+    }
+
+    setIsAgentLoading(true)
+    try {
+      await ensureAgentSession()
+    } catch (error) {
+      const errorMessage = getApiErrorMessage(error, messages.status.agentSessionCreateFailed)
+      setAgentError(errorMessage)
+      setAgentMessages((current) => [...current, createAgentUiMessage('assistant', errorMessage)])
+      setStatus(errorMessage)
+    } finally {
+      setIsAgentLoading(false)
+    }
+  }
+
+  function handleCloseAgent() {
+    setIsAgentOpen(false)
+  }
+
+  function handleAgentLauncherMouseDown(event: import('react').MouseEvent<HTMLButtonElement>) {
+    if (event.button !== 0) {
+      return
+    }
+
+    const launcher = event.currentTarget
+    agentLauncherRef.current = launcher
+    const rect = launcher.getBoundingClientRect()
+    const pointerOffsetX = event.clientX - rect.left
+    const pointerOffsetY = event.clientY - rect.top
+    let dragged = false
+
+    function handleMouseMove(moveEvent: MouseEvent) {
+      const bounds = getLauncherBounds(rect.width, rect.height)
+      const nextPosition = {
+        x: clampValue(moveEvent.clientX - pointerOffsetX, bounds.minX, bounds.maxX),
+        y: clampValue(moveEvent.clientY - pointerOffsetY, bounds.minY, bounds.maxY),
+      }
+
+      if (!dragged && (Math.abs(moveEvent.clientX - event.clientX) > 4 || Math.abs(moveEvent.clientY - event.clientY) > 4)) {
+        dragged = true
+      }
+
+      setAgentLauncherPosition(nextPosition)
+      window.localStorage.setItem(AGENT_LAUNCHER_STORAGE_KEY, JSON.stringify(nextPosition))
+    }
+
+    function handleMouseUp() {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+
+      if (dragged) {
+        window.setTimeout(() => {
+          launcher.dataset.dragging = 'false'
+        }, 0)
+        return
+      }
+
+      launcher.dataset.dragging = 'false'
+    }
+
+    launcher.dataset.dragging = 'true'
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  function handleAgentLauncherClick() {
+    if (agentLauncherRef.current?.dataset.dragging === 'true') {
+      return
+    }
+
+    void handleOpenAgent()
+  }
+
+  async function handleExecuteAgentProposal() {
+    if (!api || !agentSessionId || !agentProposal || isAgentExecuting) {
+      return
+    }
+
+    setIsAgentExecuting(true)
+    setAgentError('')
+
+    try {
+      agentExecuteAbortRef.current?.abort()
+      const controller = new AbortController()
+      agentExecuteAbortRef.current = controller
+      const response = await api.executeWorkflowSession(agentSessionId, {
+        confirmed: true,
+        proposalVersion: agentProposal.version,
+        currentDiagram: diagram,
+      }, controller.signal)
+
+      if (REMOTE_DIAGRAM_ID && persistenceRef.current) {
+        await persistenceRef.current.importDiagram({ diagram: response.diagram })
+        if (libraryMode === 'revisions') {
+          await loadRevisionHistory(revisionPage)
+        }
+        setStatus(messages.status.agentExecutedRemote)
+      } else {
+        persistenceRef.current?.primeLocalCache(response.diagram)
+        setStatus(messages.status.agentExecutedLocal)
+      }
+
+      skipNextAutosaveRef.current = true
+      dispatch({ type: 'replace-diagram', diagram: response.diagram })
+      setAgentState('completed')
+      setAgentMessages((current) => {
+        const nextMessages = [
+          ...current,
+          createAgentUiMessage('assistant', response.summary),
+        ]
+
+        if (response.warnings.length > 0) {
+          nextMessages.push(createAgentUiMessage('assistant', response.warnings.join('\n')))
+        }
+
+        return nextMessages
+      })
+    } catch (error) {
+      const errorMessage = getApiErrorMessage(error, messages.status.agentExecuteFailed)
+      setAgentState('error')
+      setAgentError(errorMessage)
+      setAgentMessages((current) => [...current, createAgentUiMessage('assistant', errorMessage)])
+      setStatus(errorMessage)
+    } finally {
+      setIsAgentExecuting(false)
+    }
+  }
+
+  async function handleSendAgentMessage() {
+    if (!api) {
+      setAgentError(messages.status.agentSessionCreateFailed)
+      return
+    }
+
+    const message = agentInput.trim()
+    if (!message || isAgentLoading || isAgentExecuting) {
+      return
+    }
+
+    if (agentState === 'awaiting_execution_confirmation' && isExecuteShortcut(message, locale)) {
+      setAgentInput('')
+      await handleExecuteAgentProposal()
+      return
+    }
+
+    setIsAgentLoading(true)
+    setAgentError('')
+    setAgentInput('')
+
+    try {
+      const sessionId = await ensureAgentSession()
+      agentMessageAbortRef.current?.abort()
+      const controller = new AbortController()
+      agentMessageAbortRef.current = controller
+      setAgentMessages((current) => [...current, createAgentUiMessage('user', message)])
+      const response = await api.sendWorkflowMessage(sessionId, {
+        message,
+        history: sliceRecentAgentTurns(agentMessages, AGENT_HISTORY_MAX_TURNS - 1),
+        currentDiagram: diagram,
+      }, controller.signal)
+
+      setAgentMessages((current) => [...current, response.reply])
+      setAgentState(response.state)
+      setAgentProposal(response.proposal ?? null)
+    } catch (error) {
+      const errorMessage = getApiErrorMessage(error, messages.status.agentSendFailed)
+      setAgentState('error')
+      setAgentError(errorMessage)
+      setAgentMessages((current) => [...current, createAgentUiMessage('assistant', errorMessage)])
+      setStatus(errorMessage)
+    } finally {
+      setIsAgentLoading(false)
+    }
+  }
+
   async function handleImportJsonChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) {
@@ -538,9 +908,33 @@ function App() {
   }
 
   useEffect(() => {
+    if (!api) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    void api.getHealth(controller.signal).then((health) => {
+      setCapabilities((current) => ({
+        ...current,
+        supportsAi: health.capabilities.supportsAi,
+      }))
+    }).catch(() => {
+      setCapabilities((current) => ({
+        ...current,
+        supportsAi: false,
+      }))
+    })
+
+    return () => {
+      controller.abort()
+    }
+  }, [api])
+
+  useEffect(() => {
     const persistence = createPersistenceService({
-      api: CAPABILITIES.supportsDatabase && REMOTE_DIAGRAM_ID && runtimeConfig.apiBaseUrl
-        ? createDiagramApiClient({ baseUrl: runtimeConfig.apiBaseUrl })
+      api: STATIC_CAPABILITIES.supportsDatabase && REMOTE_DIAGRAM_ID && API_BASE_URL
+        ? createDiagramApiClient({ baseUrl: API_BASE_URL })
         : null,
       diagramId: REMOTE_DIAGRAM_ID ?? LOCAL_DIAGRAM_ID,
       schemaVersion: SCHEMA_VERSION,
@@ -621,6 +1015,9 @@ function App() {
       cancelled = true
       diagramListAbortRef.current?.abort()
       revisionListAbortRef.current?.abort()
+      agentSessionAbortRef.current?.abort()
+      agentMessageAbortRef.current?.abort()
+      agentExecuteAbortRef.current?.abort()
       persistence.dispose()
       persistenceRef.current = null
     }
@@ -670,14 +1067,14 @@ function App() {
   }, [messages.status.edgeDeleted, messages.status.nodesDeleted, multiSelection.nodeIds, selection])
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={themeVars}>
       <input ref={importInputRef} type="file" accept="application/json,.json" className="app-hidden-input" onChange={handleImportJsonChange} />
       <Toolbar
         messages={messages}
         locale={locale}
-        showCreateRemote={CAPABILITIES.supportsCreateRemoteDocument && !REMOTE_DIAGRAM_ID}
-        showDiagramList={CAPABILITIES.supportsDiagramLibrary}
-        showRevisionActions={CAPABILITIES.supportsRevisionHistory && Boolean(REMOTE_DIAGRAM_ID && isPersistenceReady)}
+        showCreateRemote={capabilities.supportsCreateRemoteDocument && !REMOTE_DIAGRAM_ID}
+        showDiagramList={capabilities.supportsDiagramLibrary}
+        showRevisionActions={capabilities.supportsRevisionHistory && Boolean(REMOTE_DIAGRAM_ID && isPersistenceReady)}
         isCreatingRemote={isCreatingRemote}
         onCreateNewDiagram={handleCreateNewDiagram}
         onLocaleChange={handleLocaleChange}
@@ -754,6 +1151,34 @@ function App() {
         onDeleteDiagram={(diagramItem) => void handleDeleteDiagram(diagramItem)}
         onRestoreRevision={handleRestoreRevision}
       />
+      {api && supportsAi ? (
+        <>
+          <WorkflowAgentLauncher
+            label={messages.agent.launcher}
+            isOpen={isAgentOpen}
+            position={agentLauncherPosition}
+            onClick={handleAgentLauncherClick}
+            onMouseDown={handleAgentLauncherMouseDown}
+          />
+          <WorkflowAgentWindow
+            messages={messages}
+            isOpen={isAgentOpen}
+            sessionReady={Boolean(agentSessionId)}
+            agentMessages={agentMessages}
+            agentInput={agentInput}
+            agentState={agentState}
+            agentProposal={agentProposal}
+            isAgentLoading={isAgentLoading}
+            isAgentExecuting={isAgentExecuting}
+            agentError={agentError}
+            onClose={handleCloseAgent}
+            onInputChange={setAgentInput}
+            onSend={() => void handleSendAgentMessage()}
+            onExecute={() => void handleExecuteAgentProposal()}
+            onBackdropClick={handleCloseAgent}
+          />
+        </>
+      ) : null}
     </div>
   )
 }

@@ -54,7 +54,7 @@
 
 ```json
 {
-  "name": "Accenture Purple",
+  "name": "Violet",
   "bgPrimary": "#ffffff",
   "boardBackground": "linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.74))",
   "laneBackground": "linear-gradient(90deg, rgba(125,44,255,0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%)",
@@ -236,7 +236,7 @@
     "version": "0.1.0"
   },
   "theme": {
-    "name": "Accenture Purple",
+    "name": "Violet",
     "bgPrimary": "#ffffff",
     "boardBackground": "linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.74))",
     "laneBackground": "linear-gradient(90deg, rgba(125,44,255,0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%)",
@@ -333,4 +333,3 @@
 
 - `app/src/model/diagram.ts`
 - `app/src/utils/json.ts`
-

@@ -57,7 +57,7 @@ export function rebuildTheme(current: Theme, updates: Partial<EditableThemeField
   }
 }
 
-export function getCanvasThemeVars(theme: Theme): CSSProperties {
+export function getThemeCssVars(theme: Theme): CSSProperties {
   return {
     '--theme-bg-primary': theme.bgPrimary,
     '--theme-text-primary': theme.textPrimary,
@@ -68,7 +68,10 @@ export function getCanvasThemeVars(theme: Theme): CSSProperties {
     '--theme-line-soft': theme.lineSoft,
     '--theme-board-background': theme.boardBackground,
     '--theme-lane-background': theme.laneBackground,
+    '--theme-accent-025': withAlpha(theme.accent, 0.025),
+    '--theme-accent-028': withAlpha(theme.accent, 0.028),
     '--theme-accent-05': withAlpha(theme.accent, 0.05),
+    '--theme-accent-06': withAlpha(theme.accent, 0.06),
     '--theme-accent-07': withAlpha(theme.accent, 0.07),
     '--theme-accent-08': withAlpha(theme.accent, 0.08),
     '--theme-accent-10': withAlpha(theme.accent, 0.1),
@@ -78,9 +81,11 @@ export function getCanvasThemeVars(theme: Theme): CSSProperties {
     '--theme-accent-16': withAlpha(theme.accent, 0.16),
     '--theme-accent-18': withAlpha(theme.accent, 0.18),
     '--theme-accent-20': withAlpha(theme.accent, 0.2),
+    '--theme-accent-24': withAlpha(theme.accent, 0.24),
     '--theme-accent-28': withAlpha(theme.accent, 0.28),
     '--theme-accent-34': withAlpha(theme.accent, 0.34),
     '--theme-accent-42': withAlpha(theme.accent, 0.42),
+    '--theme-accent-045': withAlpha(theme.accent, 0.045),
     '--theme-accent-58': withAlpha(theme.accent, 0.58),
     '--theme-accent-76': withAlpha(theme.accent, 0.76),
     '--theme-text-76': withAlpha(theme.textPrimary, 0.76),

@@ -15,7 +15,6 @@ import {
   getLaneByY,
 } from '../../utils/geometry'
 import { getSectionSubtitle, getSectionTitle } from '../../utils/sectionLabels'
-import { getCanvasThemeVars } from '../../utils/theme'
 
 type CanvasProps = {
   diagram: Diagram
@@ -112,7 +111,6 @@ export function Canvas({
   const [interaction, setInteraction] = useState<InteractionState | null>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
-  const themeVars = getCanvasThemeVars(diagram.theme)
   const resolvedEditingNodeId = editingNodeId && diagram.nodes.some((node) => node.id === editingNodeId) ? editingNodeId : null
 
   useEffect(() => {
@@ -515,7 +513,6 @@ export function Canvas({
   return (
     <div
       className="canvas-panel"
-      style={themeVars}
       onClick={() => {
         onSelect({ kind: 'canvas' })
         onSetMultiSelection([])

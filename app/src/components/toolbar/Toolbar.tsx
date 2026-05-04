@@ -47,7 +47,6 @@ export function Toolbar({
       </div>
       <div className="toolbar__actions">
         <label className="toolbar__locale">
-          <span>{messages.toolbar.locale}</span>
           <select value={locale} onChange={(event) => onLocaleChange(event.target.value as Locale)}>
             <option value="zh-CN">中文</option>
             <option value="en-US">English</option>

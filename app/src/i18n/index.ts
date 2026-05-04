@@ -1,6 +1,7 @@
 import { enUS } from './en-US'
 import { zhCN } from './zh-CN'
 import type { Locale } from '../model/diagram'
+import type { WorkflowAgentState } from '../api/contracts'
 
 export type Messages = {
   appTitle: string
@@ -17,6 +18,23 @@ export type Messages = {
     exportJson: string
     importJson: string
     clearDraft: string
+  }
+  agent: {
+    launcher: string
+    badge: string
+    title: string
+    close: string
+    inputPlaceholder: string
+    inputHint: string
+    send: string
+    sending: string
+    sendHint: string
+    execute: string
+    executing: string
+    executeHint: string
+    connecting: string
+    empty: string
+    stateLabels: Record<WorkflowAgentState, string>
   }
   status: {
     jsonExported: string
@@ -57,6 +75,11 @@ export type Messages = {
     diagramDeleteFailed: string
     revisionsLoaded: string
     revisionsLoadFailed: string
+    agentSessionCreateFailed: string
+    agentSendFailed: string
+    agentExecuteFailed: string
+    agentExecutedLocal: string
+    agentExecutedRemote: string
   }
   library: {
     close: string
@@ -119,12 +142,7 @@ export type Messages = {
     accentField: string
     accentDeepField: string
   }
-  themePresets: {
-    'accenture-purple': string
-    'lenovo-red': string
-    'pfizer-blue': string
-    custom: string
-  }
+  themePresets: Record<string, string>
   canvas: {
     inlineTitlePlaceholder: string
     inlineDescriptionPlaceholder: string

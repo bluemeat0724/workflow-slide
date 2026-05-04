@@ -5,7 +5,7 @@
     "version": "1.0.0"
   },
   "theme": {
-    "name": "Pfizer Blue",
+    "name": "Azure",
     "bgPrimary": "#ffffff",
     "boardBackground": "linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.74))",
     "laneBackground": "",
