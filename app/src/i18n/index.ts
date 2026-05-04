@@ -35,6 +35,11 @@ export type Messages = {
     connecting: string
     empty: string
     stateLabels: Record<WorkflowAgentState, string>
+    roleLabels: {
+      user: string
+      assistant: string
+      system: string
+    }
   }
   status: {
     jsonExported: string

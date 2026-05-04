@@ -4,9 +4,14 @@ import type { WorkflowAgentMessage } from '../../api/contracts'
 type WorkflowChatMessageListProps = {
   messages: WorkflowAgentMessage[]
   emptyLabel: string
+  roleLabels: {
+    user: string
+    assistant: string
+    system: string
+  }
 }
 
-export function WorkflowChatMessageList({ messages, emptyLabel }: WorkflowChatMessageListProps) {
+export function WorkflowChatMessageList({ messages, emptyLabel, roleLabels }: WorkflowChatMessageListProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -37,7 +42,7 @@ export function WorkflowChatMessageList({ messages, emptyLabel }: WorkflowChatMe
           className={`workflow-agent-window__message workflow-agent-window__message--${message.role}`}
         >
           <header>
-            <span>{message.role === 'assistant' ? 'AI' : 'You'}</span>
+            <span>{roleLabels[message.role]}</span>
           </header>
           <p>{message.content}</p>
         </article>

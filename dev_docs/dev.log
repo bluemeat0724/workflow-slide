@@ -125,7 +125,30 @@
   - 高优先级问题：App.tsx 单体过大（1200+ 行）、前后端主题预设重复、`ensureAgentSession` 竞态条件、`WorkflowChatMessageList` 硬编码字符串缺少 i18n
   - 审查覆盖：32 个变更文件 + 14 个新增测试（49 cases 全通过）、build 通过
   - 当前 lint：2 errors（均为 WorkflowAgentWindow hooks 违规）
+
+- 执行代码优化（基于 `code_review_optimization.md`）：
+  - ✅ 修复 `WorkflowAgentWindow.tsx` hooks 顺序：`useRef`/`useEffect` 已移至早期 return 之前
+  - ✅ 抽取 `useWorkflowAgent` hook：将 App.tsx 中 ~400 行 Agent 状态管理、会话创建、消息发送、执行确认、拖拽定位逻辑移入 `app/src/hooks/useWorkflowAgent.ts`（319 行）
+  - ✅ 修复 `ensureAgentSession` 竞态条件：新增 `agentSessionPromiseRef` 防止重复创建会话
+  - ✅ 抽取工具函数到 `app/src/utils/agentHelpers.ts`：`createAgentUiMessage`、`sliceRecentAgentTurns`、`getApiErrorMessage`、`isExecuteShortcut`、launcher 位置管理
+  - ✅ 修复 `WorkflowChatMessageList` i18n：新增 `agent.roleLabels`（user/assistant/system），消除 "AI"/"You" 硬编码
+  - ✅ 统一前后端主题预设：创建 `app/shared/themePresetDefs.json`，前端 `themePresets.ts` 和后端 `serverThemePresets.mjs` 均从此文件读取
+  - ✅ 拆分 `editor.css` Agent 样式：~260 行 Agent 样式移入 `app/src/styles/agent.css`
+  - 🔲 服务端路由表模式暂缓（需更全面的后端重构测试）
+  - 效果：App.tsx 从 ~1186 行减至 865 行（-27%），editor.css 从 ~1062 行减至 ~804 行
+  - 验证通过：`npm run lint`（0 errors）、`npm run test`（49/49 passed）、`npm run build`（passes）
 - 修复 agent chat 右侧消息面板滚动行为：
   - `WorkflowChatMessageList` 在消息数组变化后自动把滚动容器拉到底部
   - 覆盖两种主要场景：用户提交消息后追加 user message、agent 回复后追加 assistant message
   - 同时把 `WorkflowAgentWindow.tsx` 的 hooks 提前到早期 return 之前，避免继续触发 React hooks 规则 lint
+- 修复“新建图”后的页面底部留白：
+  - 根因是 `App` 中状态文案 `status` 为空时不会渲染第二个 grid item，导致 `main.editor-grid` 自动落到 `app-shell` 的第二个 `auto` 行
+  - `editor-grid` 现在显式固定到第三行，始终占用 `minmax(0, 1fr)` 的主内容区
+  - 这样即使是只有空白画布的初始图，主编辑区也会稳定撑满剩余视口高度
+- 新增项目根目录 `Makefile`，提供快速启动入口：
+  - 覆盖全部启动模式：`dev`、`dev-remote`、`dev-local-db`、`server`、`server-dev`
+  - 覆盖数据库迁移：`db-migrate`、`db-migrate-sqlite`
+  - 提供复合目标：`setup`（install + migrate）、`start-local-db`（migrate + start）
+  - 覆盖检查命令：`build`、`lint`、`test`、`preview`
+  - 默认 `help` 目标列出所有可用命令
+  - 更新 `README.md` 补充 Makefile 使用说明

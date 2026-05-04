@@ -36,6 +36,11 @@ export const zhCN = {
       completed: '已完成',
       error: '执行异常',
     },
+    roleLabels: {
+      user: '你',
+      assistant: 'AI',
+      system: '系统',
+    },
   },
   status: {
     jsonExported: '已导出 JSON。',

@@ -36,6 +36,11 @@ export const enUS = {
       completed: 'Completed',
       error: 'Error',
     },
+    roleLabels: {
+      user: 'You',
+      assistant: 'AI',
+      system: 'System',
+    },
   },
   status: {
     jsonExported: 'JSON exported.',

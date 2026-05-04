@@ -104,6 +104,7 @@ export function WorkflowAgentWindow({
         <WorkflowChatMessageList
           messages={agentMessages}
           emptyLabel={sessionReady ? messages.agent.empty : messages.agent.connecting}
+          roleLabels={messages.agent.roleLabels}
         />
 
         {agentError ? <p className="workflow-agent-window__error">{agentError}</p> : null}

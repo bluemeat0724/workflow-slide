@@ -1,3 +1,11 @@
+import themePresetDefs from '../../shared/themePresetDefs.json' with { type: 'json' }
+
+const presetAliases = new Map([
+  ['accenture-purple', 'violet'],
+  ['lenovo-red', 'crimson'],
+  ['pfizer-blue', 'azure'],
+])
+
 function normalizeHex(value, fallback) {
   const trimmed = typeof value === 'string' ? value.trim() : ''
   if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
@@ -39,42 +47,10 @@ function createPresetTheme(name, accent, accentDeep) {
   }
 }
 
-const presets = [
-  {
-    id: 'violet',
-    theme: createPresetTheme('Violet', '#7d2cff', '#5b16c7'),
-  },
-  {
-    id: 'crimson',
-    theme: createPresetTheme('Crimson', '#d10000', '#a80000'),
-  },
-  {
-    id: 'azure',
-    theme: createPresetTheme('Azure', '#0093d0', '#005bbb'),
-  },
-  {
-    id: 'amber',
-    theme: createPresetTheme('Amber', '#d97706', '#b45309'),
-  },
-  {
-    id: 'graphite',
-    theme: createPresetTheme('Graphite', '#475569', '#0f172a'),
-  },
-  {
-    id: 'aqua',
-    theme: createPresetTheme('Aqua', '#2aa7ff', '#1d4ed8'),
-  },
-  {
-    id: 'teal',
-    theme: createPresetTheme('Teal', '#00a39a', '#0f766e'),
-  },
-]
-
-const presetAliases = new Map([
-  ['accenture-purple', 'violet'],
-  ['lenovo-red', 'crimson'],
-  ['pfizer-blue', 'azure'],
-])
+const presets = themePresetDefs.map((definition) => ({
+  id: definition.id,
+  theme: createPresetTheme(definition.name, definition.accent, definition.accentDeep),
+}))
 
 export function getThemePresetSummaries() {
   return presets.map((preset) => ({

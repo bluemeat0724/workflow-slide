@@ -2,24 +2,6 @@
 
 Section 式流程图编辑器，支持本地草稿编辑、SQLite/PostgreSQL 持久化，以及会话式 AI workflow agent 生成。
 
-## 当前能力
-
-- React 19 + TypeScript + Vite 前端编辑器
-- Node.js HTTP API，支持 PostgreSQL / SQLite
-- 本地自动保存、远端草稿保存、图列表、版本历史、版本恢复
-- JSON / HTML 导入导出
-- 主题色会同步影响整个系统 UI，HTML 导出中的箭头也会跟随当前主题色
-- 内置多套通用颜色主题，默认紫色，并补充橙、石墨、青碧、青绿等扩展色系
-- AI workflow agent 创建会话时会携带当前主题快照，生成结果默认贴合当前主题而不是只依赖 preset id
-- 可拖拽 AI agent 入口，打开右侧抽屉式侧栏，多轮对话后确认执行生成 workflow
-- agent 输入支持 `Ctrl/Command + Enter` 发送；进入可执行状态后可直接按 `Enter` 开始执行
-- agent chat 在提交消息和收到 agent 回复后都会自动滚动到底部，避免右侧对话面板停留在旧位置
-- 优化 agent chat 空状态布局，避免无消息时输入框和操作按钮被异常拉伸
-- agent 对话改为由前端随请求发送最近 10 轮 history，后端只使用最近 10 轮作为上下文
-- conversation agent 在空响应或非 JSON 响应时输出结构化诊断信息，便于排查 provider 兼容性与上下文问题
-- 新增基于 `dev_docs/test_payload.json` 的诊断测试，可复现多轮对话后 provider 返回空正文的错误路径
-- AI 生成结果在本地模式直接加载，在远端模式走现有 `importDiagram()` 持久化链路
-
 ## 运行方式
 
 所有命令都在 `app/` 目录下执行。
@@ -105,21 +87,83 @@ WORKFLOW_JSON_MODEL_NAME=...
 - conversation agent 的 system prompt 现在会显式说明 `reply`、`state`、`canExecute`、`proposal.title`、`proposal.summary` 的含义和返回条件，减少模型对字段语义的误判。
 - conversation agent 现在还必须返回 `proposal.themePresetId`，并且该值必须来自项目内置 theme preset 列表；execution 会使用这个会话内更新后的目标主题，而不是继续沿用创建 session 时的旧主题。
 
-## 常用命令
+## 快速启动（Makefile）
 
-| 命令 | 说明 |
-|---|---|
-| `npm run dev` | 启动前端，`local-only` |
-| `npm run dev:local-only` | 启动前端，`local-only` |
-| `npm run dev:remote` | 启动前端，连接远端 API |
-| `npm run dev:local-db` | 启动前端和本地 SQLite server |
-| `npm run server` | 启动后端 |
-| `npm run server:dev` | 启动后端 watch 模式 |
-| `npm run db:migrate` | PostgreSQL 迁移 |
-| `npm run db:migrate:sqlite` | SQLite 迁移 |
-| `npm run test` | 运行测试 |
-| `npm run lint` | 运行 ESLint |
-| `npm run build` | 类型检查并构建 |
+项目根目录提供了 `Makefile`，可在项目根目录直接使用：
+
+```bash
+make help           # 查看所有可用目标
+make install        # 安装依赖
+make dev            # 启动前端 (local-only)
+make dev-remote     # 启动前端 (remote API)
+make dev-local-db   # 启动本地 SQLite 开发服务
+make server         # 启动后端
+make server-dev     # 启动后端 (watch 模式)
+make setup          # install + PostgreSQL 迁移
+make start-local-db # SQLite 迁移 + 启动本地开发服务
+make build          # 类型检查并构建
+make lint           # 运行 ESLint
+make test           # 运行测试
+```
+
+## 三种启动模式
+
+项目支持三种前端启动模式，按需选择：
+
+### local-only — 纯前端模式
+
+```bash
+npm run dev           # 或 make dev
+```
+
+- 只启动 Vite 前端，不依赖任何后端服务
+- **不支持**远端保存、图列表、版本历史等数据库功能
+- **不支持** AI workflow agent（无法访问 `/api/ai/*`）
+- 编辑结果仅保存在浏览器本地（localStorage），关闭浏览器后可能丢失
+- 适合：快速体验编辑器、离线演示、纯导出场景
+
+### remote — 远端 API 模式
+
+```bash
+npm run dev:remote    # 或 make dev-remote
+```
+
+- 前端连接到独立的远端 API 服务器
+- 需在 `app/.env` 中配置 `VITE_STORAGE_MODE=remote` 和 `VITE_API_BASE_URL`
+- 支持完整的数据库功能：远端保存、图列表、版本历史、版本恢复
+- 如果远端服务器配置了 AI，则支持 AI workflow agent
+- 适合：团队共用服务端、生产部署场景
+
+### local-db — 本地数据库模式
+
+```bash
+# 首次需先执行迁移
+npm run db:migrate:sqlite   # 或 make db-migrate-sqlite
+npm run dev:local-db        # 或 make dev-local-db
+```
+
+- 同时启动前端和本地 Node.js 后端，使用 SQLite 存储
+- 需在 `app/.env` 中配置 `STORAGE_DRIVER=sqlite`
+- 支持完整的数据库功能（本地持久化），无需外部 PostgreSQL
+- 如果配置了 AI 密钥，同样支持 AI workflow agent
+- 适合：单机完整开发体验
+
+## 后端与数据库命令
+
+| 命令 | Make 目标 | 说明 |
+|---|---|---|
+| `npm run server` | `make server` | 启动后端（PostgreSQL 默认） |
+| `npm run server:dev` | `make server-dev` | 启动后端 watch 模式，文件变更自动重启 |
+| `npm run db:migrate` | `make db-migrate` | 执行 PostgreSQL 数据库迁移 |
+| `npm run db:migrate:sqlite` | `make db-migrate-sqlite` | 执行 SQLite 数据库迁移 |
+
+## 检查命令
+
+| 命令 | Make 目标 | 说明 |
+|---|---|---|
+| `npm run test` | `make test` | 运行 Vitest 测试 |
+| `npm run lint` | `make lint` | 运行 ESLint 静态检查 |
+| `npm run build` | `make build` | TypeScript 类型检查 + Vite 生产构建 |
 
 ## 主要目录
 
