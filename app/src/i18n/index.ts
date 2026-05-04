@@ -72,8 +72,6 @@ export type Messages = {
     restoreRevision: string
     deleteDiagramConfirm: string
     restoreRevisionConfirm: string
-    saveRevisionPrompt: string
-    saveRevisionPlaceholder: string
     revisionSource: string
     revisionVersion: string
     updatedAt: string

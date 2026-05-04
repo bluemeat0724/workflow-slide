@@ -1,16 +1,20 @@
+import Database from 'better-sqlite3'
 import { Pool } from 'pg'
-import { getDatabaseUrl } from './config.mjs'
+import fs from 'node:fs'
+import path from 'node:path'
+import { getDatabaseUrl, getSqliteConfig } from './config.mjs'
 
-let pool
+let pgPool
+let sqliteDb
 
 export function getPool() {
-  if (!pool) {
-    pool = new Pool({
+  if (!pgPool) {
+    pgPool = new Pool({
       connectionString: getDatabaseUrl(),
     })
   }
 
-  return pool
+  return pgPool
 }
 
 export async function withTransaction(callback) {
@@ -27,4 +31,21 @@ export async function withTransaction(callback) {
   } finally {
     client.release()
   }
+}
+
+export function getSqliteDb() {
+  if (!sqliteDb) {
+    const { filePath } = getSqliteConfig()
+    const dataDir = path.dirname(filePath)
+
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true })
+    }
+
+    sqliteDb = new Database(filePath)
+    sqliteDb.pragma('journal_mode = WAL')
+    sqliteDb.pragma('foreign_keys = ON')
+  }
+
+  return sqliteDb
 }

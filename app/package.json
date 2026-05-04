@@ -4,16 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "VITE_STORAGE_MODE=local-only vite",
+    "dev:local-only": "VITE_STORAGE_MODE=local-only vite",
+    "dev:remote": "VITE_STORAGE_MODE=remote vite",
+    "dev:local-db": "node scripts/dev-local-db.mjs",
     "server": "node --env-file=.env server/index.mjs",
     "server:dev": "node --watch --env-file=.env server/index.mjs",
     "db:migrate": "node --env-file=.env server/migrate.mjs",
+    "db:migrate:sqlite": "node --env-file=.env server/migrate-sqlite.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
+    "better-sqlite3": "^12.9.0",
     "pg": "^8.20.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"

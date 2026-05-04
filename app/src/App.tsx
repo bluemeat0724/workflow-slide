@@ -3,9 +3,10 @@ import { createDiagramApiClient } from './api/client'
 import type { DiagramListItem, DiagramRevision } from './api/contracts'
 import { Canvas } from './components/canvas/Canvas'
 import { Inspector } from './components/inspector/Inspector'
-import { RemoteLibrary } from './components/library/RemoteLibrary'
+import { DiagramLibrary } from './components/library/DiagramLibrary'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { Toolbar } from './components/toolbar/Toolbar'
+import { getRuntimeConfig } from './config/runtime'
 import { createEmptyDiagram } from './data/createEmptyDiagram'
 import { getThemePresetById, getThemePresetId, type ThemePresetId } from './data/themePresets'
 import { createEditorState, editorStateReducer } from './editor/editorState'
@@ -21,8 +22,12 @@ const LOCAL_DRAFT_KEY = 'workflow-tool-draft'
 const LOCAL_DIAGRAM_ID = 'local-default'
 const LOCAL_PERSISTENCE_CACHE_KEY = `workflow-tool-diagram:${LOCAL_DIAGRAM_ID}`
 const SCHEMA_VERSION = '1.0'
+const runtimeConfig = getRuntimeConfig()
+const CAPABILITIES = runtimeConfig.capabilities
 const SEARCH_PARAMS = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
-const REMOTE_DIAGRAM_ID = SEARCH_PARAMS.get('diagramId')?.trim() || null
+const REMOTE_DIAGRAM_ID = CAPABILITIES.supportsDatabase
+  ? (SEARCH_PARAMS.get('diagramId')?.trim() || null)
+  : null
 const FORCE_NEW_DIAGRAM = !REMOTE_DIAGRAM_ID && SEARCH_PARAMS.get('new') === '1'
 const localeFromSearch = SEARCH_PARAMS.get('locale')
 const INITIAL_LOCALE: Locale | null = localeFromSearch === 'en-US' || localeFromSearch === 'zh-CN'
@@ -48,7 +53,9 @@ function loadInitialDiagram() {
 }
 
 function App() {
-  const api = createDiagramApiClient()
+  const api = runtimeConfig.apiBaseUrl
+    ? createDiagramApiClient({ baseUrl: runtimeConfig.apiBaseUrl })
+    : null
   const [editorState, dispatch] = useReducer(editorStateReducer, initialState.diagram, createEditorState)
   const [status, setStatus] = useState(initialState.restored ? getMessages(initialState.diagram.meta.locale).status.draftRestored : '')
   const [isCreatingRemote, setIsCreatingRemote] = useState(false)
@@ -235,7 +242,7 @@ function App() {
       return
     }
 
-    if (REMOTE_DIAGRAM_ID) {
+    if (CAPABILITIES.supportsDatabase && REMOTE_DIAGRAM_ID) {
       const nextUrl = new URL(window.location.href)
       nextUrl.searchParams.delete('diagramId')
       nextUrl.searchParams.set('new', '1')
@@ -255,7 +262,7 @@ function App() {
   }
 
   async function handleCreateRemote() {
-    if (REMOTE_DIAGRAM_ID || isCreatingRemote) {
+    if (REMOTE_DIAGRAM_ID || isCreatingRemote || !CAPABILITIES.supportsCreateRemoteDocument || !api) {
       return
     }
 
@@ -281,6 +288,10 @@ function App() {
   }
 
   async function loadDiagramList(page = 1, keyword = diagramKeyword) {
+    if (!api) {
+      return
+    }
+
     diagramListAbortRef.current?.abort()
     const controller = new AbortController()
     diagramListAbortRef.current = controller
@@ -324,7 +335,7 @@ function App() {
   })
 
   async function loadRevisionHistory(page = 1) {
-    if (!REMOTE_DIAGRAM_ID) {
+    if (!REMOTE_DIAGRAM_ID || !api) {
       return
     }
 
@@ -362,19 +373,16 @@ function App() {
   }
 
   async function handleSaveRevision() {
-    if (!REMOTE_DIAGRAM_ID || !persistenceRef.current) {
+    if (!REMOTE_DIAGRAM_ID || !persistenceRef.current || !CAPABILITIES.supportsRevisionHistory) {
       return
     }
 
-    const changeSummary = window.prompt(messages.library.saveRevisionPrompt, messages.library.saveRevisionPlaceholder)
-    if (changeSummary === null) {
-      return
-    }
+    const changeSummary = new Date().toLocaleString()
 
     try {
       await persistenceRef.current.saveRevision({
         diagram,
-        changeSummary: changeSummary.trim() || undefined,
+        changeSummary,
       })
       setStatus(messages.status.revisionSaved)
 
@@ -398,6 +406,10 @@ function App() {
   }
 
   async function handleDeleteDiagram(item: DiagramListItem) {
+    if (!api) {
+      return
+    }
+
     const confirmMessage = messages.library.deleteDiagramConfirm.replace('{title}', item.title)
     if (!window.confirm(confirmMessage)) {
       return
@@ -527,7 +539,9 @@ function App() {
 
   useEffect(() => {
     const persistence = createPersistenceService({
-      api: REMOTE_DIAGRAM_ID ? createDiagramApiClient() : null,
+      api: CAPABILITIES.supportsDatabase && REMOTE_DIAGRAM_ID && runtimeConfig.apiBaseUrl
+        ? createDiagramApiClient({ baseUrl: runtimeConfig.apiBaseUrl })
+        : null,
       diagramId: REMOTE_DIAGRAM_ID ?? LOCAL_DIAGRAM_ID,
       schemaVersion: SCHEMA_VERSION,
       createEmptyDiagram: () => createEmptyDiagram(localeRef.current),
@@ -661,9 +675,9 @@ function App() {
       <Toolbar
         messages={messages}
         locale={locale}
-        showCreateRemote={!REMOTE_DIAGRAM_ID}
-        showDiagramList
-        showRevisionActions={Boolean(REMOTE_DIAGRAM_ID && isPersistenceReady)}
+        showCreateRemote={CAPABILITIES.supportsCreateRemoteDocument && !REMOTE_DIAGRAM_ID}
+        showDiagramList={CAPABILITIES.supportsDiagramLibrary}
+        showRevisionActions={CAPABILITIES.supportsRevisionHistory && Boolean(REMOTE_DIAGRAM_ID && isPersistenceReady)}
         isCreatingRemote={isCreatingRemote}
         onCreateNewDiagram={handleCreateNewDiagram}
         onLocaleChange={handleLocaleChange}
@@ -720,7 +734,7 @@ function App() {
           activeThemePresetId={activeThemePresetId}
         />
       </main>
-      <RemoteLibrary
+      <DiagramLibrary
         messages={messages}
         mode={libraryMode}
         currentDiagramId={REMOTE_DIAGRAM_ID}

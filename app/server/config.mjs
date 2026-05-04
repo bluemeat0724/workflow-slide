@@ -1,3 +1,7 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_PORT = 3103
 const DEFAULT_DEV_USER_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -8,6 +12,15 @@ function requireEnv(name) {
   }
 
   return value
+}
+
+export function getStorageDriver() {
+  const driver = process.env.STORAGE_DRIVER
+  if (driver === 'sqlite' || driver === 'postgres') {
+    return driver
+  }
+
+  return 'postgres'
 }
 
 export function getDatabaseUrl() {
@@ -22,6 +35,12 @@ export function getDatabaseUrl() {
   const password = requireEnv('DB_PASSWORD')
 
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${name}`
+}
+
+export function getSqliteConfig() {
+  return {
+    filePath: process.env.SQLITE_FILE ?? path.join(__dirname, '..', 'data', 'workflow-tool.sqlite'),
+  }
 }
 
 export function getServerConfig() {

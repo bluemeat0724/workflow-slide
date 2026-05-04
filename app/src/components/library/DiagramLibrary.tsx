@@ -1,7 +1,7 @@
 import type { DiagramListItem, DiagramRevision } from '../../api/contracts'
 import type { Messages } from '../../i18n'
 
-type RemoteLibraryProps = {
+type DiagramLibraryProps = {
   messages: Messages
   mode: 'diagrams' | 'revisions' | null
   currentDiagramId: string | null
@@ -26,7 +26,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString()
 }
 
-export function RemoteLibrary({
+export function DiagramLibrary({
   messages,
   mode,
   currentDiagramId,
@@ -45,17 +45,17 @@ export function RemoteLibrary({
   onOpenDiagram,
   onDeleteDiagram,
   onRestoreRevision,
-}: RemoteLibraryProps) {
+}: DiagramLibraryProps) {
   if (!mode) {
     return null
   }
 
   return (
-    <div className="remote-library-backdrop" onClick={onClose}>
-      <aside className="remote-library" onClick={(event) => event.stopPropagation()}>
-        <div className="remote-library__header">
+    <div className="diagram-library-backdrop" onClick={onClose}>
+      <aside className="diagram-library" onClick={(event) => event.stopPropagation()}>
+        <div className="diagram-library__header">
           <div>
-            <p className="remote-library__eyebrow">Workflow Tool</p>
+            <p className="diagram-library__eyebrow">Workflow Tool</p>
             <h2>{mode === 'diagrams' ? messages.library.diagramsTitle : messages.library.revisionsTitle}</h2>
           </div>
           <button type="button" className="toolbar__button toolbar__button--ghost" onClick={onClose}>
@@ -65,30 +65,30 @@ export function RemoteLibrary({
 
         {mode === 'diagrams' ? (
           <>
-            <label className="remote-library__search">
+            <label className="diagram-library__search">
               <input
                 value={diagramKeyword}
                 placeholder={messages.library.searchPlaceholder}
                 onChange={(event) => onDiagramKeywordChange(event.target.value)}
               />
             </label>
-            <div className="remote-library__list">
-              {diagrams.length === 0 ? <p className="remote-library__empty">{messages.library.diagramsEmpty}</p> : null}
+            <div className="diagram-library__list">
+              {diagrams.length === 0 ? <p className="diagram-library__empty">{messages.library.diagramsEmpty}</p> : null}
               {diagrams.map((item) => (
-                <article key={item.id} className={`remote-library__item ${item.id === currentDiagramId ? 'is-active' : ''}`}>
-                  <div className="remote-library__item-main">
+                <article key={item.id} className={`diagram-library__item ${item.id === currentDiagramId ? 'is-active' : ''}`}>
+                  <div className="diagram-library__item-main">
                     <strong>{item.title}</strong>
                     <span>{messages.library.revisionVersion} {item.latestVersion}</span>
                     <span>{messages.library.updatedAt}: {formatDate(item.updatedAt)}</span>
                     {item.id === currentDiagramId ? <em>{messages.library.currentDiagram}</em> : null}
                   </div>
-                  <div className="remote-library__item-actions">
+                  <div className="diagram-library__item-actions">
                     <button type="button" className="toolbar__button toolbar__button--ghost" onClick={() => onOpenDiagram(item.id)}>
                       {messages.library.openDiagram}
                     </button>
                     <button
                       type="button"
-                      className="toolbar__button toolbar__button--ghost remote-library__delete-button"
+                      className="toolbar__button toolbar__button--ghost diagram-library__delete-button"
                       disabled={deletingDiagramId === item.id}
                       onClick={() => onDeleteDiagram(item)}
                     >
@@ -98,7 +98,7 @@ export function RemoteLibrary({
                 </article>
               ))}
             </div>
-            <div className="remote-library__footer">
+            <div className="diagram-library__footer">
               <button
                 type="button"
                 className="toolbar__button toolbar__button--ghost"
@@ -120,11 +120,11 @@ export function RemoteLibrary({
           </>
         ) : (
           <>
-            <div className="remote-library__list">
-              {revisions.length === 0 ? <p className="remote-library__empty">{messages.library.revisionsEmpty}</p> : null}
+            <div className="diagram-library__list">
+              {revisions.length === 0 ? <p className="diagram-library__empty">{messages.library.revisionsEmpty}</p> : null}
               {revisions.map((item) => (
-                <article key={item.revisionId} className="remote-library__item">
-                  <div className="remote-library__item-main">
+                <article key={item.revisionId} className="diagram-library__item">
+                  <div className="diagram-library__item-main">
                     <strong>{messages.library.revisionVersion} {item.version}</strong>
                     <span>{messages.library.revisionSource}: {item.source}</span>
                     {item.changeSummary ? <span>{item.changeSummary}</span> : null}
@@ -136,7 +136,7 @@ export function RemoteLibrary({
                 </article>
               ))}
             </div>
-            <div className="remote-library__footer">
+            <div className="diagram-library__footer">
               <button
                 type="button"
                 className="toolbar__button toolbar__button--ghost"

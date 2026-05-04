@@ -352,7 +352,7 @@ sub agent 专门负责 JSON 生成，采用你提供的“对话前缀续写”�
 
 建议调用形式：
 
-```js
+````js
 const messages = [
   { role: 'system', content: 'You generate workflow JSON only.' },
   { role: 'user', content: subAgentPrompt },
@@ -364,7 +364,7 @@ const response = await client.chat.completions.create({
   messages,
   stop: ['```'],
 })
-```
+````
 
 服务端处理建议：
 
@@ -539,13 +539,13 @@ v1 可以先做固定位置浮窗，不必一开始就支持拖拽。
 
 建议将以下交互固化为文档级 example：
 
-用户：生成一幅 rag 工作流  
-agent：我建议将该 workflow 拆成数据接入、文档切分与向量化、检索、答案生成四个泳道。关键节点包括知识库导入、切片与 embedding、向量索引、query 改写、召回、重排、LLM 生成和最终回复输出。请问是否执行？  
-用户：把 query 改写和重排放到同一个泳道，并增加一个人工反馈节点  
-agent：调整后 workflow 将分为数据接入、索引构建、检索增强、生成与反馈四个泳道。其中检索增强泳道包含 query 改写、召回、重排；生成与反馈泳道包含答案生成、人工反馈、结果输出。请问是否执行？  
-用户：执行  
-agent：已确认执行，下面将按当前版本生成最终 workflow JSON。  
-sub agent：基于最终自然语言规格，用对话前缀续写方式生成 fenced JSON 文本  
+用户：生成一幅 rag 工作流\
+agent：我建议将该 workflow 拆成数据接入、文档切分与向量化、检索、答案生成四个泳道。关键节点包括知识库导入、切片与 embedding、向量索引、query 改写、召回、重排、LLM 生成和最终回复输出。请问是否执行？\
+用户：把 query 改写和重排放到同一个泳道，并增加一个人工反馈节点\
+agent：调整后 workflow 将分为数据接入、索引构建、检索增强、生成与反馈四个泳道。其中检索增强泳道包含 query 改写、召回、重排；生成与反馈泳道包含答案生成、人工反馈、结果输出。请问是否执行？\
+用户：执行\
+agent：已确认执行，下面将按当前版本生成最终 workflow JSON。\
+sub agent：基于最终自然语言规格，用对话前缀续写方式生成 fenced JSON 文本\
 system：提取 json data，归一化校验后加载到应用 workflow
 
 ### 9.5 建议前端文件改动
@@ -691,25 +691,25 @@ mock OpenAI client，验证：
 
 ## 13. 风险与对应措施
 
-风险：主 agent 过早执行  
+风险：主 agent 过早执行\
 措施：执行接口必须由服务端状态机控制，仅 `awaiting_execution_confirmation` 可执行
 
-风险：用户修改需求后误执行旧提案  
+风险：用户修改需求后误执行旧提案\
 措施：每次形成新提案都递增 `proposalVersion`，执行时强制校验版本一致
 
-风险：sub agent 输出 fenced JSON 不完整  
+风险：sub agent 输出 fenced JSON 不完整\
 措施：统一做 fenced block 重建、提取、`JSON.parse()` 校验和有限次重试
 
-风险：节点布局拥挤或越界  
+风险：节点布局拥挤或越界\
 措施：坐标由程序生成，并统一走 `constrainNodeToLane()`
 
-风险：主题字段非法  
+风险：主题字段非法\
 措施：主题完全由程序从 preset 生成，不依赖模型自由输出
 
-风险：远端文档执行后覆盖用户草稿  
+风险：远端文档执行后覆盖用户草稿\
 措施：执行前必须明确确认；执行时继续走现有 `importDiagram()` 乐观锁和 revision 机制
 
-风险：会话状态丢失  
+风险：会话状态丢失\
 措施：v1 可先采用内存会话并设置过期时间；若后续需求增强，再升级到持久化会话
 
 ## 14. 建议的首个实施版本
@@ -740,3 +740,4 @@ mock OpenAI client，验证：
 - 支持会话跨刷新恢复
 - 支持行业模板或示例 few-shot
 - 支持按语言自动优化 lane subtitle
+

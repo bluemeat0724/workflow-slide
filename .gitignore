@@ -34,4 +34,6 @@ coverage
 # Project-specific generated files
 /data/*.json
 /data/*.html
+/data/*.sqlite
+/app/data/*.sqlite*
 !/dev_docs/*

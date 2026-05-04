@@ -117,7 +117,7 @@
   overflow: hidden;
 }
 
-.remote-library-backdrop {
+.diagram-library-backdrop {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -128,7 +128,7 @@
   padding: 24px;
 }
 
-.remote-library {
+.diagram-library {
   width: min(460px, 100%);
   max-height: calc(100vh - 48px);
   overflow: auto;
@@ -139,7 +139,7 @@
   box-shadow: 0 28px 60px rgba(11, 11, 15, 0.16);
 }
 
-.remote-library__header {
+.diagram-library__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -147,13 +147,13 @@
   margin-bottom: 18px;
 }
 
-.remote-library__header h2 {
+.diagram-library__header h2 {
   margin: 4px 0 0;
   font-size: 1.4rem;
   font-family: "Iowan Old Style", "Baskerville", "Songti SC", Georgia, serif;
 }
 
-.remote-library__eyebrow {
+.diagram-library__eyebrow {
   margin: 0;
   font-size: 0.72rem;
   letter-spacing: 0.16em;
@@ -162,17 +162,17 @@
   font-weight: 700;
 }
 
-.remote-library__list {
+.diagram-library__list {
   display: grid;
   gap: 12px;
 }
 
-.remote-library__search {
+.diagram-library__search {
   display: block;
   margin-bottom: 14px;
 }
 
-.remote-library__search input {
+.diagram-library__search input {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid rgba(11, 11, 15, 0.12);
@@ -181,7 +181,7 @@
   color: #0b0b0f;
 }
 
-.remote-library__item {
+.diagram-library__item {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -192,43 +192,43 @@
   background: rgba(255, 255, 255, 0.88);
 }
 
-.remote-library__item.is-active {
+.diagram-library__item.is-active {
   outline: 2px solid rgba(209, 0, 0, 0.28);
 }
 
-.remote-library__item-main {
+.diagram-library__item-main {
   display: grid;
   gap: 4px;
 }
 
-.remote-library__item-main strong {
+.diagram-library__item-main strong {
   font-size: 0.98rem;
 }
 
-.remote-library__item-main span,
-.remote-library__item-main em,
-.remote-library__empty {
+.diagram-library__item-main span,
+.diagram-library__item-main em,
+.diagram-library__empty {
   color: #555563;
   font-size: 0.84rem;
 }
 
-.remote-library__item-main em {
+.diagram-library__item-main em {
   font-style: normal;
   color: #a80000;
 }
 
-.remote-library__item-actions {
+.diagram-library__item-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
 
-.remote-library__delete-button {
+.diagram-library__delete-button {
   color: #a80000;
 }
 
-.remote-library__footer {
+.diagram-library__footer {
   margin-top: 16px;
   display: flex;
   justify-content: space-between;
