@@ -38,10 +38,6 @@ export function WorkflowAgentWindow({
   onExecute,
   onBackdropClick,
 }: WorkflowAgentWindowProps) {
-  if (!isOpen) {
-    return null
-  }
-
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const isBusy = isAgentLoading || isAgentExecuting
   const canExecute = agentState === 'awaiting_execution_confirmation' && Boolean(agentProposal) && !isBusy
@@ -54,6 +50,10 @@ export function WorkflowAgentWindow({
 
     textareaRef.current?.focus()
   }, [isBusy, isOpen, sessionReady])
+
+  if (!isOpen) {
+    return null
+  }
 
   function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key !== 'Enter' || event.shiftKey) {

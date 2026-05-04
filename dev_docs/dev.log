@@ -125,3 +125,7 @@
   - 高优先级问题：App.tsx 单体过大（1200+ 行）、前后端主题预设重复、`ensureAgentSession` 竞态条件、`WorkflowChatMessageList` 硬编码字符串缺少 i18n
   - 审查覆盖：32 个变更文件 + 14 个新增测试（49 cases 全通过）、build 通过
   - 当前 lint：2 errors（均为 WorkflowAgentWindow hooks 违规）
+- 修复 agent chat 右侧消息面板滚动行为：
+  - `WorkflowChatMessageList` 在消息数组变化后自动把滚动容器拉到底部
+  - 覆盖两种主要场景：用户提交消息后追加 user message、agent 回复后追加 assistant message
+  - 同时把 `WorkflowAgentWindow.tsx` 的 hooks 提前到早期 return 之前，避免继续触发 React hooks 规则 lint

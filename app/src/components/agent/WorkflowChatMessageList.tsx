@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { WorkflowAgentMessage } from '../../api/contracts'
 
 type WorkflowChatMessageListProps = {
@@ -6,16 +7,30 @@ type WorkflowChatMessageListProps = {
 }
 
 export function WorkflowChatMessageList({ messages, emptyLabel }: WorkflowChatMessageListProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) {
+      return
+    }
+
+    container.scrollTop = container.scrollHeight
+  }, [messages])
+
   if (messages.length === 0) {
     return (
-      <div className="workflow-agent-window__messages workflow-agent-window__messages--empty">
+      <div
+        ref={containerRef}
+        className="workflow-agent-window__messages workflow-agent-window__messages--empty"
+      >
         <div className="workflow-agent-window__empty">{emptyLabel}</div>
       </div>
     )
   }
 
   return (
-    <div className="workflow-agent-window__messages">
+    <div ref={containerRef} className="workflow-agent-window__messages">
       {messages.map((message) => (
         <article
           key={message.id}

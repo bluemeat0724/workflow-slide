@@ -13,6 +13,7 @@ Section 式流程图编辑器，支持本地草稿编辑、SQLite/PostgreSQL 持
 - AI workflow agent 创建会话时会携带当前主题快照，生成结果默认贴合当前主题而不是只依赖 preset id
 - 可拖拽 AI agent 入口，打开右侧抽屉式侧栏，多轮对话后确认执行生成 workflow
 - agent 输入支持 `Ctrl/Command + Enter` 发送；进入可执行状态后可直接按 `Enter` 开始执行
+- agent chat 在提交消息和收到 agent 回复后都会自动滚动到底部，避免右侧对话面板停留在旧位置
 - 优化 agent chat 空状态布局，避免无消息时输入框和操作按钮被异常拉伸
 - agent 对话改为由前端随请求发送最近 10 轮 history，后端只使用最近 10 轮作为上下文
 - conversation agent 在空响应或非 JSON 响应时输出结构化诊断信息，便于排查 provider 兼容性与上下文问题
