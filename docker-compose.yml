@@ -158,6 +158,72 @@ services:
     ports:
       - '${FRONTEND_PORT:-8080}:80'
 
+  server-remote-db:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.server
+      args:
+        VITE_STORAGE_MODE: remote
+        VITE_API_BASE_URL: /api
+    profiles: ['remote-db']
+    restart: unless-stopped
+    environment:
+      PORT: 3103
+      STORAGE_DRIVER: postgres
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_HOST: ${DB_HOST:-}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-}
+      DB_USER: ${DB_USER:-}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DEFAULT_USER_ID: ${DEFAULT_USER_ID:-00000000-0000-0000-0000-000000000001}
+      DEFAULT_USER_EMAIL: ${DEFAULT_USER_EMAIL:-local-dev@workflow-tool.local}
+      DEFAULT_USER_NAME: ${DEFAULT_USER_NAME:-Local Dev User}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_BASE: ${OPENAI_API_BASE:-}
+      DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-}
+      ENABLE_THINKING: ${ENABLE_THINKING:-false}
+      DEFAULT_REASONING_EFFORT: ${DEFAULT_REASONING_EFFORT:-medium}
+      WORKFLOW_JSON_BASE_URL: ${WORKFLOW_JSON_BASE_URL:-}
+      WORKFLOW_JSON_MODEL_NAME: ${WORKFLOW_JSON_MODEL_NAME:-}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: ${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}
+      GIF_EXPORT_BROWSER_LAUNCH_TIMEOUT_MS: ${GIF_EXPORT_BROWSER_LAUNCH_TIMEOUT_MS:-30000}
+      GIF_EXPORT_USE_SANDBOX: ${GIF_EXPORT_USE_SANDBOX:-false}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3103/api/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '${SERVER_PORT:-3103}:3103'
+    networks:
+      default:
+        aliases:
+          - server
+
+  frontend-remote-db:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.frontend
+      args:
+        VITE_STORAGE_MODE: remote
+        VITE_API_BASE_URL: /api
+        NGINX_TEMPLATE: frontend.remote
+    profiles: ['remote-db']
+    restart: unless-stopped
+    depends_on:
+      server-remote-db:
+        condition: service_healthy
+    ports:
+      - '${FRONTEND_PORT:-8080}:80'
+
 volumes:
   postgres_data:
   sqlite_data:

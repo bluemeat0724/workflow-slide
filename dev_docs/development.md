@@ -75,7 +75,7 @@ npm run dev:local-db        # 或 make dev-local-db
 
 ## Docker 部署
 
-仓库根目录提供了基于 `profiles` 的 `docker-compose.yml`，支持 3 种部署模式；默认通过 `.env` 里的 `COMPOSE_PROFILES=sqlite` 启动 SQLite 组合。
+仓库根目录提供了基于 `profiles` 的 `docker-compose.yml`，支持 4 种部署模式；默认通过 `.env` 里的 `COMPOSE_PROFILES=sqlite` 启动 SQLite 组合。
 
 ### 1. 默认模式: frontend + server + SQLite
 
@@ -115,7 +115,29 @@ COMPOSE_PROFILES=pg docker compose up --build -d
 - 前端容器内 Nginx 会把 `/api/*` 反代到 `server-pg:3103`
 - server 容器启动时会自动执行 PostgreSQL migration
 
-### 3. frontend only
+### 3. frontend + server + 外部 PostgreSQL (remote-db)
+
+```bash
+cp .env.example .env
+# 在 .env 中配置 DATABASE_URL 指向外部 PostgreSQL
+COMPOSE_PROFILES=remote-db docker compose up --build -d
+```
+
+启动服务：
+
+- `frontend-remote-db`：静态前端容器，对外暴露 `http://127.0.0.1:${FRONTEND_PORT:-8080}`
+- `server-remote-db`：Node.js API，对外暴露 `http://127.0.0.1:${SERVER_PORT:-3103}`
+
+说明：
+
+- **不启动 PostgreSQL 容器**，依赖外部已有数据库
+- 通过 `DATABASE_URL` 环境变量指定数据库连接（也支持 `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` 分字段配置）
+- 前端同样构建为 `VITE_STORAGE_MODE=remote`
+- 前端容器内 Nginx 会把 `/api/*` 反代到 `server-remote-db:3103`
+- server 容器启动时会自动执行 PostgreSQL migration，确保表结构存在
+- 适用于已有托管 PostgreSQL（如 RDS、PolarDB 等）的生产或预发布环境
+
+### 4. frontend only
 
 ```bash
 cp .env.example .env
@@ -131,10 +153,11 @@ COMPOSE_PROFILES=front-only docker compose up --build -d
 
 ### 通用说明
 
-- 三种 profile 共享同一个根目录 `.env`
+- 四种 profile 共享同一个根目录 `.env`
 - `FRONTEND_PORT` 控制前端对外端口，默认 `8080`
 - `SERVER_PORT` 控制 API 对外端口，默认 `3103`
-- `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` 仅用于 `pg` profile
+- `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` 仅用于 `pg` profile 构建 PostgreSQL 容器
+- `DATABASE_URL`（或 `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD`）用于 `remote-db` profile 连接外部 PostgreSQL
 - `COMPOSE_PROFILES=sqlite` 时，`docker compose up --build -d` 会默认启动 SQLite 组合
 - 不要同时启用多个 profile；它们会竞争同一组端口
 - 后端镜像基于 Playwright 官方运行时，避免 GIF 导出缺少 Chromium 或系统库

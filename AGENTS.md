@@ -109,6 +109,7 @@ When changing persistence or API behavior, keep frontend contracts, backend resp
 - Treat `dev_docs/` as supporting context, not the only source of truth. Confirm behavior in code before relying on a doc.
 - Remember to update the relevant docs in `dev_docs/` after making code changes.
 - For Environment realated issues, if you cannot resolve them, stop working and ask for human help.
+- Consider scenarios of different deployment modes (local-only, remote, local-db, remote-db) when developing features.
 
 ## Validation Checklist
 
