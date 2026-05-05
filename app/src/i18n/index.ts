@@ -16,6 +16,7 @@ export type Messages = {
     saveRevision: string
     exportHtml: string
     exportJson: string
+    exportGif: string
     importJson: string
     clearDraft: string
   }
@@ -44,6 +45,8 @@ export type Messages = {
   status: {
     jsonExported: string
     htmlExported: string
+    gifExported: string
+    gifExportFailed: string
     jsonImported: string
     jsonImportFailed: string
     draftRestored: string
@@ -141,6 +144,9 @@ export type Messages = {
     createEdge: string
     themeNameField: string
     themePresetField: string
+    edgeAnimationModeField: string
+    edgeAnimationModeAllActive: string
+    edgeAnimationModeSequential: string
     bgPrimaryField: string
     textPrimaryField: string
     textMutedField: string

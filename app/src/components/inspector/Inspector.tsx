@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import type { Diagram, EdgeEmphasis, NodeType, Selection, Theme } from '../../model/diagram'
+import type { Diagram, EdgeAnimationMode, EdgeEmphasis, NodeType, Selection, Theme } from '../../model/diagram'
 import type { Messages } from '../../i18n'
 import { themePresets, type ThemePresetId } from '../../data/themePresets'
 import { getSectionTitle } from '../../utils/sectionLabels'
@@ -9,6 +9,7 @@ type InspectorProps = {
   selection: Selection
   messages: Messages
   onUpdateCanvasTitle: (title: string) => void
+  onUpdateEdgeAnimationMode: (mode: EdgeAnimationMode) => void
   onUpdateLane: (laneId: string, updates: { title?: string; subtitle?: string }) => void
   onDeleteLane: (laneId: string) => void
   onUpdateNode: (nodeId: string, updates: { title?: string; description?: string; tag?: string; type?: NodeType }) => void
@@ -26,6 +27,7 @@ export function Inspector({
   selection,
   messages,
   onUpdateCanvasTitle,
+  onUpdateEdgeAnimationMode,
   onUpdateLane,
   onDeleteLane,
   onUpdateNode,
@@ -101,6 +103,13 @@ export function Inspector({
           <label className="inspector__field">
             <span>{messages.inspector.canvasTitle}</span>
             <input value={diagram.meta.title} onChange={(event) => onUpdateCanvasTitle(event.target.value)} />
+          </label>
+          <label className="inspector__field">
+            <span>{messages.inspector.edgeAnimationModeField}</span>
+            <select value={diagram.meta.edgeAnimationMode} onChange={(event) => onUpdateEdgeAnimationMode(event.target.value as EdgeAnimationMode)}>
+              <option value="all-active">{messages.inspector.edgeAnimationModeAllActive}</option>
+              <option value="sequential">{messages.inspector.edgeAnimationModeSequential}</option>
+            </select>
           </label>
         </div>
         <div className="inspector__group inspector__group--nested">

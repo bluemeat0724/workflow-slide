@@ -1,4 +1,14 @@
-import type { Diagram, Edge, Lane, Locale, Node, NodeType, Theme } from '../model/diagram'
+import {
+  DEFAULT_EDGE_ANIMATION_MODE,
+  type Diagram,
+  type Edge,
+  type EdgeAnimationMode,
+  type Lane,
+  type Locale,
+  type Node,
+  type NodeType,
+  type Theme,
+} from '../model/diagram'
 
 function assertString(value: unknown, label: string): string {
   if (typeof value !== 'string') {
@@ -22,6 +32,10 @@ function assertLocale(value: unknown): Locale {
   }
 
   throw new Error('locale is invalid')
+}
+
+function parseEdgeAnimationMode(value: unknown): EdgeAnimationMode {
+  return value === 'sequential' || value === 'all-active' ? value : DEFAULT_EDGE_ANIMATION_MODE
 }
 
 function assertNodeType(value: unknown): NodeType {
@@ -117,6 +131,7 @@ export function parseDiagramJson(content: string): Diagram {
       title: assertString(meta.title, 'meta.title'),
       locale: assertLocale(meta.locale),
       version: assertString(meta.version, 'meta.version'),
+      edgeAnimationMode: parseEdgeAnimationMode(meta.edgeAnimationMode),
     },
     theme: parseTheme(raw.theme),
     lanes,

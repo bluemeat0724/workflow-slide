@@ -7,7 +7,9 @@ type ToolbarProps = {
   showCreateRemote: boolean
   showDiagramList: boolean
   showRevisionActions: boolean
+  showExportGif: boolean
   isCreatingRemote: boolean
+  isExportingGif: boolean
   onCreateNewDiagram: () => void
   onLocaleChange: (locale: Locale) => void
   onCreateRemote: () => void
@@ -17,6 +19,7 @@ type ToolbarProps = {
   onImportJson: () => void
   onExportJson: () => void
   onExportHtml: () => void
+  onExportGif: () => void
   onClearDraft: () => void
 }
 
@@ -26,7 +29,9 @@ export function Toolbar({
   showCreateRemote,
   showDiagramList,
   showRevisionActions,
+  showExportGif,
   isCreatingRemote,
+  isExportingGif,
   onCreateNewDiagram,
   onLocaleChange,
   onCreateRemote,
@@ -36,6 +41,7 @@ export function Toolbar({
   onImportJson,
   onExportJson,
   onExportHtml,
+  onExportGif,
   onClearDraft,
 }: ToolbarProps) {
   return (
@@ -87,6 +93,11 @@ export function Toolbar({
         <button type="button" className="toolbar__button" onClick={onExportHtml}>
           {messages.toolbar.exportHtml}
         </button>
+        {showExportGif ? (
+          <button type="button" className="toolbar__button" onClick={onExportGif} disabled={isExportingGif}>
+            {isExportingGif ? '...' : messages.toolbar.exportGif}
+          </button>
+        ) : null}
       </div>
     </header>
   )

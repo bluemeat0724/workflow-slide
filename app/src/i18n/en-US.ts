@@ -1,5 +1,5 @@
 export const enUS = {
-  appTitle: 'Workflow Editor',
+  appTitle: 'UncleFlow',
   subtitle: 'Section-based workflow editing and export',
   toolbar: {
     locale: 'Language',
@@ -11,6 +11,7 @@ export const enUS = {
     saveRevision: 'Save',
     exportHtml: 'Export HTML',
     exportJson: 'Export JSON',
+    exportGif: 'Export GIF',
     importJson: 'Import JSON',
     clearDraft: 'Clear Local Draft',
   },
@@ -45,6 +46,8 @@ export const enUS = {
   status: {
     jsonExported: 'JSON exported.',
     htmlExported: 'HTML exported.',
+    gifExported: 'GIF exported.',
+    gifExportFailed: 'GIF export failed. Check the backend service.',
     jsonImported: 'JSON imported.',
     jsonImportFailed: 'JSON import failed. Please verify the file format.',
     draftRestored: 'Local draft restored.',
@@ -142,6 +145,9 @@ export const enUS = {
     createEdge: 'Create Edge',
     themeNameField: 'Theme Name',
     themePresetField: 'Theme Preset',
+    edgeAnimationModeField: 'Edge Animation',
+    edgeAnimationModeAllActive: 'All Active',
+    edgeAnimationModeSequential: 'Sequential',
     bgPrimaryField: 'Background',
     textPrimaryField: 'Primary Text',
     textMutedField: 'Muted Text',

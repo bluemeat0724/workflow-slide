@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import type { DiagramApiClient } from '../api/client'
 import type { WorkflowAgentMessage, WorkflowAgentProposal, WorkflowAgentState } from '../api/contracts'
 import type { Messages } from '../i18n'
@@ -28,6 +28,85 @@ type UseWorkflowAgentConfig = {
   onDiagramApplied: (diagram: Diagram) => Promise<void>
 }
 
+type AgentState = {
+  isOpen: boolean
+  sessionId: string | null
+  messages: WorkflowAgentMessage[]
+  state: WorkflowAgentState
+  proposal: WorkflowAgentProposal | null
+  input: string
+  isLoading: boolean
+  isExecuting: boolean
+  error: string
+  launcherPosition: AgentLauncherPosition
+}
+
+type AgentAction =
+  | { type: 'open-agent' }
+  | { type: 'close-agent' }
+  | { type: 'set-session'; sessionId: string; state: WorkflowAgentState; welcomeMessage: string }
+  | { type: 'set-input'; input: string }
+  | { type: 'start-loading' }
+  | { type: 'stop-loading' }
+  | { type: 'start-executing' }
+  | { type: 'stop-executing' }
+  | { type: 'set-error'; error: string }
+  | { type: 'set-state'; state: WorkflowAgentState }
+  | { type: 'set-proposal'; proposal: WorkflowAgentProposal | null }
+  | { type: 'add-messages'; messages: WorkflowAgentMessage[] }
+  | { type: 'set-launcher-position'; position: AgentLauncherPosition }
+
+function agentStateReducer(state: AgentState, action: AgentAction): AgentState {
+  switch (action.type) {
+    case 'open-agent':
+      return { ...state, isOpen: true }
+    case 'close-agent':
+      return { ...state, isOpen: false }
+    case 'set-session':
+      return {
+        ...state,
+        sessionId: action.sessionId,
+        state: action.state,
+        proposal: null,
+        error: '',
+        messages: state.messages.length > 0 ? state.messages : [createAgentUiMessage('assistant', action.welcomeMessage)],
+      }
+    case 'set-input':
+      return { ...state, input: action.input }
+    case 'start-loading':
+      return { ...state, isLoading: true, error: '' }
+    case 'stop-loading':
+      return { ...state, isLoading: false }
+    case 'start-executing':
+      return { ...state, isExecuting: true, error: '' }
+    case 'stop-executing':
+      return { ...state, isExecuting: false }
+    case 'set-error':
+      return { ...state, error: action.error, state: 'error' }
+    case 'set-state':
+      return { ...state, state: action.state }
+    case 'set-proposal':
+      return { ...state, proposal: action.proposal }
+    case 'add-messages':
+      return { ...state, messages: [...state.messages, ...action.messages] }
+    case 'set-launcher-position':
+      return { ...state, launcherPosition: action.position }
+  }
+}
+
+const initialAgentState: AgentState = {
+  isOpen: false,
+  sessionId: null,
+  messages: [],
+  state: 'collecting_requirements',
+  proposal: null,
+  input: '',
+  isLoading: false,
+  isExecuting: false,
+  error: '',
+  launcherPosition: loadLauncherPosition(),
+}
+
 export function useWorkflowAgent({
   api,
   diagram,
@@ -37,16 +116,7 @@ export function useWorkflowAgent({
   setStatus,
   onDiagramApplied,
 }: UseWorkflowAgentConfig) {
-  const [isAgentOpen, setIsAgentOpen] = useState(false)
-  const [agentSessionId, setAgentSessionId] = useState<string | null>(null)
-  const [agentMessages, setAgentMessages] = useState<WorkflowAgentMessage[]>([])
-  const [agentState, setAgentState] = useState<WorkflowAgentState>('collecting_requirements')
-  const [agentProposal, setAgentProposal] = useState<WorkflowAgentProposal | null>(null)
-  const [agentInput, setAgentInput] = useState('')
-  const [isAgentLoading, setIsAgentLoading] = useState(false)
-  const [isAgentExecuting, setIsAgentExecuting] = useState(false)
-  const [agentError, setAgentError] = useState('')
-  const [agentLauncherPosition, setAgentLauncherPosition] = useState<AgentLauncherPosition>(loadLauncherPosition)
+  const [agentState, dispatch] = useReducer(agentStateReducer, initialAgentState)
   const agentLauncherRef = useRef<HTMLButtonElement | null>(null)
   const agentSessionAbortRef = useRef<AbortController | null>(null)
   const agentMessageAbortRef = useRef<AbortController | null>(null)
@@ -60,12 +130,12 @@ export function useWorkflowAgent({
       const height = launcher?.offsetHeight ?? AGENT_LAUNCHER_FALLBACK_HEIGHT
       const bounds = getLauncherBounds(width, height)
       const nextPosition = {
-        x: clampValue(agentLauncherPosition.x, bounds.minX, bounds.maxX),
-        y: clampValue(agentLauncherPosition.y, bounds.minY, bounds.maxY),
+        x: clampValue(agentState.launcherPosition.x, bounds.minX, bounds.maxX),
+        y: clampValue(agentState.launcherPosition.y, bounds.minY, bounds.maxY),
       }
 
-      if (nextPosition.x !== agentLauncherPosition.x || nextPosition.y !== agentLauncherPosition.y) {
-        setAgentLauncherPosition(nextPosition)
+      if (nextPosition.x !== agentState.launcherPosition.x || nextPosition.y !== agentState.launcherPosition.y) {
+        dispatch({ type: 'set-launcher-position', position: nextPosition })
         window.localStorage.setItem(AGENT_LAUNCHER_STORAGE_KEY, JSON.stringify(nextPosition))
       }
     }
@@ -75,15 +145,15 @@ export function useWorkflowAgent({
     return () => {
       window.removeEventListener('resize', clampLauncherPosition)
     }
-  }, [agentLauncherPosition.x, agentLauncherPosition.y])
+  }, [agentState.launcherPosition.x, agentState.launcherPosition.y])
 
   const ensureAgentSession = useCallback(async () => {
     if (!api) {
       throw new Error('AI workflow agent requires api access.')
     }
 
-    if (agentSessionId) {
-      return agentSessionId
+    if (agentState.sessionId) {
+      return agentState.sessionId
     }
 
     if (agentSessionPromiseRef.current) {
@@ -102,15 +172,7 @@ export function useWorkflowAgent({
         currentDiagram: diagram,
       }, controller.signal)
 
-      setAgentSessionId(response.sessionId)
-      setAgentState(response.state)
-      setAgentProposal(null)
-      setAgentMessages((current) => (
-        current.length > 0
-          ? current
-          : [createAgentUiMessage('assistant', response.welcomeMessage)]
-      ))
-      setAgentError('')
+      dispatch({ type: 'set-session', sessionId: response.sessionId, state: response.state, welcomeMessage: response.welcomeMessage })
       return response.sessionId
     })()
 
@@ -121,122 +183,112 @@ export function useWorkflowAgent({
     } finally {
       agentSessionPromiseRef.current = null
     }
-  }, [api, agentSessionId, locale, activeThemePresetId, diagram])
+  }, [api, agentState.sessionId, locale, activeThemePresetId, diagram])
 
   const handleCloseAgent = useCallback(() => {
-    setIsAgentOpen(false)
+    dispatch({ type: 'close-agent' })
   }, [])
 
   const handleOpenAgent = useCallback(async () => {
-    setIsAgentOpen(true)
+    dispatch({ type: 'open-agent' })
 
-    if (agentSessionId || !api) {
+    if (agentState.sessionId || !api) {
       return
     }
 
-    setIsAgentLoading(true)
+    dispatch({ type: 'start-loading' })
     try {
       await ensureAgentSession()
     } catch (error) {
       const errorMessage = getApiErrorMessage(error, messages.status.agentSessionCreateFailed)
-      setAgentError(errorMessage)
-      setAgentMessages((current) => [...current, createAgentUiMessage('assistant', errorMessage)])
+      dispatch({ type: 'set-error', error: errorMessage })
+      dispatch({ type: 'add-messages', messages: [createAgentUiMessage('assistant', errorMessage)] })
       setStatus(errorMessage)
     } finally {
-      setIsAgentLoading(false)
+      dispatch({ type: 'stop-loading' })
     }
-  }, [agentSessionId, api, ensureAgentSession, messages, setStatus])
+  }, [agentState.sessionId, api, ensureAgentSession, messages, setStatus])
 
   const handleExecuteAgentProposal = useCallback(async () => {
-    if (!api || !agentSessionId || !agentProposal || isAgentExecuting) {
+    if (!api || !agentState.sessionId || !agentState.proposal || agentState.isExecuting) {
       return
     }
 
-    setIsAgentExecuting(true)
-    setAgentError('')
+    dispatch({ type: 'start-executing' })
+    dispatch({ type: 'set-error', error: '' })
 
     try {
       agentExecuteAbortRef.current?.abort()
       const controller = new AbortController()
       agentExecuteAbortRef.current = controller
-      const response = await api.executeWorkflowSession(agentSessionId, {
+      const response = await api.executeWorkflowSession(agentState.sessionId, {
         confirmed: true,
-        proposalVersion: agentProposal.version,
+        proposalVersion: agentState.proposal.version,
         currentDiagram: diagram,
       }, controller.signal)
 
       await onDiagramApplied(response.diagram)
 
-      setAgentState('completed')
-      setAgentMessages((current) => {
-        const nextMessages = [
-          ...current,
-          createAgentUiMessage('assistant', response.summary),
-        ]
-
-        if (response.warnings.length > 0) {
-          nextMessages.push(createAgentUiMessage('assistant', response.warnings.join('\n')))
-        }
-
-        return nextMessages
-      })
+      dispatch({ type: 'set-state', state: 'completed' })
+      const completionMessages = [createAgentUiMessage('assistant', response.summary)]
+      if (response.warnings.length > 0) {
+        completionMessages.push(createAgentUiMessage('assistant', response.warnings.join('\n')))
+      }
+      dispatch({ type: 'add-messages', messages: completionMessages })
     } catch (error) {
       const errorMessage = getApiErrorMessage(error, messages.status.agentExecuteFailed)
-      setAgentState('error')
-      setAgentError(errorMessage)
-      setAgentMessages((current) => [...current, createAgentUiMessage('assistant', errorMessage)])
+      dispatch({ type: 'set-error', error: errorMessage })
+      dispatch({ type: 'add-messages', messages: [createAgentUiMessage('assistant', errorMessage)] })
       setStatus(errorMessage)
     } finally {
-      setIsAgentExecuting(false)
+      dispatch({ type: 'stop-executing' })
     }
-  }, [api, agentSessionId, agentProposal, isAgentExecuting, diagram, onDiagramApplied, messages, setStatus])
+  }, [api, agentState.sessionId, agentState.proposal, agentState.isExecuting, diagram, onDiagramApplied, messages, setStatus])
 
   const handleSendAgentMessage = useCallback(async () => {
     if (!api) {
-      setAgentError(messages.status.agentSessionCreateFailed)
+      dispatch({ type: 'set-error', error: messages.status.agentSessionCreateFailed })
       return
     }
 
-    const message = agentInput.trim()
-    if (!message || isAgentLoading || isAgentExecuting) {
+    const message = agentState.input.trim()
+    if (!message || agentState.isLoading || agentState.isExecuting) {
       return
     }
 
-    if (agentState === 'awaiting_execution_confirmation' && isExecuteShortcut(message, locale)) {
-      setAgentInput('')
+    if (agentState.state === 'awaiting_execution_confirmation' && isExecuteShortcut(message, locale)) {
+      dispatch({ type: 'set-input', input: '' })
       await handleExecuteAgentProposal()
       return
     }
 
-    setIsAgentLoading(true)
-    setAgentError('')
-    setAgentInput('')
+    dispatch({ type: 'start-loading' })
+    dispatch({ type: 'set-input', input: '' })
 
     try {
       const sessionId = await ensureAgentSession()
       agentMessageAbortRef.current?.abort()
       const controller = new AbortController()
       agentMessageAbortRef.current = controller
-      setAgentMessages((current) => [...current, createAgentUiMessage('user', message)])
+      dispatch({ type: 'add-messages', messages: [createAgentUiMessage('user', message)] })
       const response = await api.sendWorkflowMessage(sessionId, {
         message,
-        history: sliceRecentAgentTurns(agentMessages, AGENT_HISTORY_MAX_TURNS - 1),
+        history: sliceRecentAgentTurns(agentState.messages, AGENT_HISTORY_MAX_TURNS - 1),
         currentDiagram: diagram,
       }, controller.signal)
 
-      setAgentMessages((current) => [...current, response.reply])
-      setAgentState(response.state)
-      setAgentProposal(response.proposal ?? null)
+      dispatch({ type: 'add-messages', messages: [response.reply] })
+      dispatch({ type: 'set-state', state: response.state })
+      dispatch({ type: 'set-proposal', proposal: response.proposal ?? null })
     } catch (error) {
       const errorMessage = getApiErrorMessage(error, messages.status.agentSendFailed)
-      setAgentState('error')
-      setAgentError(errorMessage)
-      setAgentMessages((current) => [...current, createAgentUiMessage('assistant', errorMessage)])
+      dispatch({ type: 'set-error', error: errorMessage })
+      dispatch({ type: 'add-messages', messages: [createAgentUiMessage('assistant', errorMessage)] })
       setStatus(errorMessage)
     } finally {
-      setIsAgentLoading(false)
+      dispatch({ type: 'stop-loading' })
     }
-  }, [api, agentInput, isAgentLoading, isAgentExecuting, agentState, locale, ensureAgentSession, agentMessages, diagram, messages, setStatus, handleExecuteAgentProposal])
+  }, [api, agentState.input, agentState.isLoading, agentState.isExecuting, agentState.state, agentState.messages, locale, diagram, messages, ensureAgentSession, setStatus, handleExecuteAgentProposal])
 
   const handleAgentLauncherMouseDown = useCallback((event: import('react').MouseEvent<HTMLButtonElement>) => {
     if (event.button !== 0) {
@@ -261,7 +313,7 @@ export function useWorkflowAgent({
         dragged = true
       }
 
-      setAgentLauncherPosition(nextPosition)
+      dispatch({ type: 'set-launcher-position', position: nextPosition })
       window.localStorage.setItem(AGENT_LAUNCHER_STORAGE_KEY, JSON.stringify(nextPosition))
     }
 
@@ -298,17 +350,21 @@ export function useWorkflowAgent({
     agentExecuteAbortRef.current?.abort()
   }, [])
 
+  const setAgentInput = useCallback((input: string) => {
+    dispatch({ type: 'set-input', input })
+  }, [])
+
   return {
-    isAgentOpen,
-    agentSessionId,
-    agentMessages,
-    agentState,
-    agentProposal,
-    agentInput,
-    isAgentLoading,
-    isAgentExecuting,
-    agentError,
-    agentLauncherPosition,
+    isAgentOpen: agentState.isOpen,
+    agentSessionId: agentState.sessionId,
+    agentMessages: agentState.messages,
+    agentState: agentState.state,
+    agentProposal: agentState.proposal,
+    agentInput: agentState.input,
+    isAgentLoading: agentState.isLoading,
+    isAgentExecuting: agentState.isExecuting,
+    agentError: agentState.error,
+    agentLauncherPosition: agentState.launcherPosition,
     setAgentInput,
     handleCloseAgent,
     handleAgentLauncherMouseDown,

@@ -56,7 +56,19 @@ export function constrainNodeToLane(node: Node, lanes: Lane[], laneId: string) {
   }
 }
 
-function getNodeSidePoint(source: Node, target: Node) {
+function getAxisGap(sourceStart: number, sourceEnd: number, targetStart: number, targetEnd: number) {
+  if (sourceEnd < targetStart) {
+    return targetStart - sourceEnd
+  }
+
+  if (targetEnd < sourceStart) {
+    return sourceStart - targetEnd
+  }
+
+  return 0
+}
+
+export function getNodeSidePoint(source: Node, target: Node) {
   const sourceCx = source.x + source.width / 2
   const sourceCy = source.y + source.height / 2
   const targetCx = target.x + target.width / 2
@@ -64,35 +76,85 @@ function getNodeSidePoint(source: Node, target: Node) {
 
   const dx = targetCx - sourceCx
   const dy = targetCy - sourceCy
+  const horizontalGap = getAxisGap(source.x, source.x + source.width, target.x, target.x + target.width)
+  const verticalGap = getAxisGap(source.y, source.y + source.height, target.y, target.y + target.height)
 
-  if (Math.abs(dx) >= Math.abs(dy)) {
+  if (source.y + source.height <= target.y || target.y + target.height <= source.y || verticalGap > horizontalGap) {
+    return dy >= 0
+      ? {
+          startX: sourceCx,
+          startY: source.y + source.height,
+          endX: targetCx,
+          endY: target.y,
+          startSide: 'bottom',
+          endSide: 'top',
+        }
+      : {
+          startX: sourceCx,
+          startY: source.y,
+          endX: targetCx,
+          endY: target.y + target.height,
+          startSide: 'top',
+          endSide: 'bottom',
+        }
+  }
+
+  if (horizontalGap > verticalGap) {
     return dx >= 0
       ? {
           startX: source.x + source.width,
           startY: sourceCy,
           endX: target.x,
           endY: targetCy,
+          startSide: 'right',
+          endSide: 'left',
         }
       : {
           startX: source.x,
           startY: sourceCy,
           endX: target.x + target.width,
           endY: targetCy,
+          startSide: 'left',
+          endSide: 'right',
         }
   }
 
-  return dy >= 0
+  if (Math.abs(dy) > Math.abs(dx)) {
+    return dy >= 0
+      ? {
+          startX: sourceCx,
+          startY: source.y + source.height,
+          endX: targetCx,
+          endY: target.y,
+          startSide: 'bottom',
+          endSide: 'top',
+        }
+      : {
+          startX: sourceCx,
+          startY: source.y,
+          endX: targetCx,
+          endY: target.y + target.height,
+          startSide: 'top',
+          endSide: 'bottom',
+        }
+  }
+
+  return dx >= 0
     ? {
-        startX: sourceCx,
-        startY: source.y + source.height,
-        endX: targetCx,
-        endY: target.y,
+        startX: source.x + source.width,
+        startY: sourceCy,
+        endX: target.x,
+        endY: targetCy,
+        startSide: 'right',
+        endSide: 'left',
       }
     : {
-        startX: sourceCx,
-        startY: source.y,
-        endX: targetCx,
-        endY: target.y + target.height,
+        startX: source.x,
+        startY: sourceCy,
+        endX: target.x + target.width,
+        endY: targetCy,
+        startSide: 'left',
+        endSide: 'right',
       }
 }
 
@@ -114,7 +176,9 @@ export function buildEdgePath(edge: Edge, nodes: Node[]): string {
   const controlX = Math.max(Math.abs(dx) * 0.35, 64)
   const controlY = Math.max(Math.abs(dy) * 0.28, 42)
 
-  if (Math.abs(dx) >= Math.abs(dy)) {
+  const isVertical = anchor.endSide === 'top' || anchor.endSide === 'bottom'
+
+  if (!isVertical) {
     const c1x = startX + (dx >= 0 ? controlX : -controlX)
     const c2x = endX - (dx >= 0 ? controlX : -controlX)
     return `M ${startX} ${startY} C ${c1x} ${startY}, ${c2x} ${endY}, ${endX} ${endY}`

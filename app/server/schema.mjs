@@ -31,6 +31,7 @@ export function assertDiagramPayload(value) {
       title: assertString(meta.title, 'diagram.meta.title'),
       locale: assertLocale(meta.locale),
       version: assertString(meta.version, 'diagram.meta.version'),
+      edgeAnimationMode: assertEdgeAnimationMode(meta.edgeAnimationMode),
     },
     theme,
     lanes: [...lanes].sort((left, right) => left.order - right.order),
@@ -89,6 +90,18 @@ function assertNodeType(value) {
   }
 
   throw createValidationError('diagram.nodes.type', 'diagram.nodes.type is invalid.')
+}
+
+function assertEdgeAnimationMode(value) {
+  if (value === undefined || value === null || value === 'all-active') {
+    return 'all-active'
+  }
+
+  if (value === 'sequential') {
+    return value
+  }
+
+  throw createValidationError('diagram.meta.edgeAnimationMode', 'diagram.meta.edgeAnimationMode is invalid.')
 }
 
 function assertEdgeEmphasis(value) {

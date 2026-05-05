@@ -174,34 +174,56 @@ export function createWorkflowConversationAgent({
     model: clientConfig.model,
 
     async generateReply(session) {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
+      const systemMessage = {
+        role: 'system',
+        content: buildWorkflowConversationSystemPrompt({ locale: session.locale }),
+      }
+      let messages = [systemMessage, ...buildWorkflowConversationMessages(session)]
 
-      try {
-        const completion = await clientConfig.client.chat.completions.create({
-          model: clientConfig.model,
-          messages: [
-            {
-              role: 'system',
-              content: buildWorkflowConversationSystemPrompt({ locale: session.locale }),
-            },
-            ...buildWorkflowConversationMessages(session),
-          ],
-          ...(clientConfig.enableThinking ? { thinking: { type: 'enabled' } } : {}),
-          ...(clientConfig.reasoningEffort ? { reasoning_effort: clientConfig.reasoningEffort } : {}),
-        }, {
-          signal: controller.signal,
-        })
+      const maxRetries = 3
 
-        const diagnostics = createResponseDiagnostics(completion)
-        const rawContent = extractTextContent(completion?.choices?.[0]?.message?.content)
-        console.log('[workflow-agent] conversation-agent-raw-response', rawContent)
-        const jsonText = extractJsonObjectText(rawContent, diagnostics)
-        return parseConversationPayload(JSON.parse(jsonText))
-      } catch (error) {
-        throw normalizeAiError(error, 'Conversation agent request failed.')
-      } finally {
-        clearTimeout(timeoutId)
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
+
+        let rawContent = ''
+
+        try {
+          const completion = await clientConfig.client.chat.completions.create({
+            model: clientConfig.model,
+            messages,
+            ...(clientConfig.enableThinking ? { thinking: { type: 'enabled' } } : {}),
+            ...(clientConfig.reasoningEffort ? { reasoning_effort: clientConfig.reasoningEffort } : {}),
+          }, {
+            signal: controller.signal,
+          })
+
+          const diagnostics = createResponseDiagnostics(completion)
+          rawContent = extractTextContent(completion?.choices?.[0]?.message?.content)
+          console.log('[workflow-agent] conversation-agent-raw-response', rawContent)
+          const jsonText = extractJsonObjectText(rawContent, diagnostics)
+          return parseConversationPayload(JSON.parse(jsonText))
+        } catch (error) {
+          clearTimeout(timeoutId)
+
+          if (error && typeof error === 'object' && error.code === 'AI_RESPONSE_INVALID' && attempt < maxRetries) {
+            logConversationAgentDiagnostic('conversation-agent-retry', {
+              attempt: attempt + 1,
+              maxRetries,
+              error: error.message,
+              rawPreview: rawContent ? rawContent.slice(0, 280) : '(empty)',
+            })
+
+            messages = [
+              ...messages,
+              { role: 'assistant', content: rawContent || '(empty response)' },
+              { role: 'user', content: 'Please return a valid fenced JSON payload.' },
+            ]
+            continue
+          }
+
+          throw normalizeAiError(error, 'Conversation agent request failed.')
+        }
       }
     },
   }

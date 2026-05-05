@@ -44,7 +44,7 @@
 
 .toolbar h1 {
   margin: 4px 0;
-  font-size: clamp(1.8rem, 3.2vw, 3rem);
+  font-size: clamp(1.3rem, 2.2vw, 1.8rem);
   line-height: 0.98;
 }
 
@@ -453,7 +453,7 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 14 9;
-  animation: dash 2.8s linear infinite;
+  stroke-dashoffset: var(--edge-dash-offset, 0);
 }
 
 .edge-path--theme {
@@ -755,12 +755,6 @@
 .inspector__action-button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-@keyframes dash {
-  to {
-    stroke-dashoffset: -44;
-  }
 }
 
 @media (max-width: 1280px) {

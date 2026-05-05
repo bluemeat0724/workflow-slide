@@ -1,4 +1,6 @@
+import fs from 'node:fs/promises'
 import http from 'node:http'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { URL } from 'node:url'
 import { getServerConfig, getStorageDriver, hasAiConfig } from './config.mjs'
@@ -7,6 +9,24 @@ import { createAiConfigurationError } from './ai/errors.mjs'
 import { getPool, getSqliteDb } from './db.mjs'
 import { normalizeDiagramDocument } from './repository/helpers.mjs'
 import { createPostgresDiagramRepository } from './repository/postgresDiagramRepository.mjs'
+import { generateDiagramGif } from './render/gifExporter.mjs'
+import { buildRoutes, matchRoute } from './routes.mjs'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DIST_DIR = path.join(__dirname, '..', 'dist')
+const MIME_TYPES = new Map([
+  ['.css', 'text/css; charset=utf-8'],
+  ['.gif', 'image/gif'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.ico', 'image/x-icon'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml; charset=utf-8'],
+  ['.txt', 'text/plain; charset=utf-8'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2'],
+])
 
 function json(response, status, payload) {
   response.writeHead(status, {
@@ -86,6 +106,74 @@ function normalizeAiInitializationError(error) {
   return error
 }
 
+function isPathInside(parentPath, childPath) {
+  const relativePath = path.relative(parentPath, childPath)
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))
+}
+
+function getContentType(filePath) {
+  return MIME_TYPES.get(path.extname(filePath).toLowerCase()) ?? 'application/octet-stream'
+}
+
+async function fileExists(filePath) {
+  try {
+    const stats = await fs.stat(filePath)
+    return stats.isFile()
+  } catch {
+    return false
+  }
+}
+
+async function resolveStaticFile(requestPath) {
+  const relativePath = decodeURIComponent(requestPath === '/' ? '/index.html' : requestPath).replace(/^\/+/, '')
+  const filePath = path.join(DIST_DIR, path.normalize(relativePath))
+
+  if (!isPathInside(DIST_DIR, filePath)) {
+    return null
+  }
+
+  return await fileExists(filePath) ? filePath : null
+}
+
+async function serveFile(response, filePath, method) {
+  const content = await fs.readFile(filePath)
+  response.writeHead(200, {
+    'Content-Type': getContentType(filePath),
+    'Content-Length': content.length,
+  })
+
+  if (method === 'HEAD') {
+    response.end()
+    return
+  }
+
+  response.end(content)
+}
+
+async function tryServeFrontend(requestPath, method, response) {
+  if (method !== 'GET' && method !== 'HEAD') {
+    return false
+  }
+
+  const staticFile = await resolveStaticFile(requestPath)
+  if (staticFile) {
+    await serveFile(response, staticFile, method)
+    return true
+  }
+
+  if (path.extname(requestPath)) {
+    return false
+  }
+
+  const indexFile = path.join(DIST_DIR, 'index.html')
+  if (!(await fileExists(indexFile))) {
+    return false
+  }
+
+  await serveFile(response, indexFile, method)
+  return true
+}
+
 export function buildHealthPayload({ storageDriver, supportsAi }) {
   return {
     ok: true,
@@ -129,13 +217,170 @@ export async function createAppServer({
     }
   }
 
+  const getWf = getWorkflowExecutionServiceInstance
+
+  const routes = buildRoutes({
+    handleHealth() {
+      return { status: 200, payload: buildHealthPayload({ storageDriver, supportsAi }) }
+    },
+
+    async handleCreateWorkflowSession({ body }) {
+      const payload = await getWf().createWorkflowSession(body)
+      return { status: 201, payload }
+    },
+
+    async handleSendWorkflowMessage({ params, body }) {
+      const payload = await getWf().sendWorkflowMessage(params.sessionId, body)
+      return { status: 200, payload }
+    },
+
+    async handleExecuteWorkflowSession({ params, body }) {
+      const payload = await getWf().executeWorkflowSession(params.sessionId, body)
+      return { status: 200, payload }
+    },
+
+    async handleListDiagrams({ url }) {
+      const payload = await resolvedRepo.listDiagrams(Object.fromEntries(url.searchParams.entries()))
+      return { status: 200, payload }
+    },
+
+    async handleCreateDiagram({ body }) {
+      const payload = await resolvedRepo.createDiagram(body)
+      return { status: 201, payload }
+    },
+
+    async handleGetDiagram({ params }) {
+      const diagram = await resolvedRepo.getDiagramById(params.diagramId)
+      if (!diagram) {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Diagram not found.' } }
+      }
+      return { status: 200, payload: normalizeDiagramDocument(diagram) }
+    },
+
+    async handleDeleteDiagram({ params }) {
+      const deleted = await resolvedRepo.softDeleteDiagram(params.diagramId)
+      if (!deleted) {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Diagram not found.' } }
+      }
+      return { status: 204 }
+    },
+
+    async handleUpdateDraft({ params, body }) {
+      const result = await resolvedRepo.updateDraft(params.diagramId, body)
+
+      if (result.kind === 'not-found') {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Diagram not found.' } }
+      }
+
+      if (result.kind === 'conflict') {
+        return {
+          status: 409,
+          payload: {
+            ok: false,
+            code: 'VERSION_CONFLICT',
+            message: 'Draft has been updated by another session.',
+            latestVersion: result.document.latestVersion,
+            serverDocument: result.document,
+          },
+        }
+      }
+
+      return {
+        status: 200,
+        payload: { ok: true, latestVersion: result.latestVersion, savedAt: result.savedAt },
+      }
+    },
+
+    async handleListRevisions({ params, url }) {
+      const payload = await resolvedRepo.listRevisions(params.diagramId, Object.fromEntries(url.searchParams.entries()))
+      return { status: 200, payload }
+    },
+
+    async handleCreateRevision({ params, body }) {
+      const result = await resolvedRepo.createRevision(params.diagramId, body)
+
+      if (result.kind === 'not-found') {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Diagram not found.' } }
+      }
+
+      if (result.kind === 'conflict') {
+        return { status: 409, payload: { ok: false, code: 'VERSION_CONFLICT', message: 'Draft has been updated by another session.' } }
+      }
+
+      return {
+        status: 201,
+        payload: { revisionId: result.revisionId, version: result.version, createdAt: result.createdAt },
+      }
+    },
+
+    async handleGetRevisionDetail({ params }) {
+      const revision = await resolvedRepo.getRevision(params.diagramId, params.revisionId)
+      if (!revision) {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Revision not found.' } }
+      }
+      return { status: 200, payload: revision }
+    },
+
+    async handleRestoreRevision({ params, body }) {
+      const result = await resolvedRepo.restoreRevision(params.diagramId, params.revisionId, body)
+
+      if (result.kind === 'not-found') {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Diagram not found.' } }
+      }
+
+      if (result.kind === 'revision-not-found') {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Revision not found.' } }
+      }
+
+      if (result.kind === 'conflict') {
+        return { status: 409, payload: { ok: false, code: 'VERSION_CONFLICT', message: 'Draft has been updated by another session.' } }
+      }
+
+      return {
+        status: 200,
+        payload: { ok: true, latestVersion: result.latestVersion, savedAt: result.savedAt, diagram: result.diagram },
+      }
+    },
+
+    async handleImportDiagram({ params, body }) {
+      const result = await resolvedRepo.importDiagram(params.diagramId, body)
+
+      if (result.kind === 'not-found') {
+        return { status: 404, payload: { ok: false, code: 'NOT_FOUND', message: 'Diagram not found.' } }
+      }
+
+      if (result.kind === 'conflict') {
+        return { status: 409, payload: { ok: false, code: 'VERSION_CONFLICT', message: 'Draft has been updated by another session.' } }
+      }
+
+      return {
+        status: 200,
+        payload: { ok: true, latestVersion: result.latestVersion, savedAt: result.savedAt },
+      }
+    },
+
+    async handleExportGif({ body, response }) {
+      let result
+      try {
+        result = await generateDiagramGif(body)
+      } catch (error) {
+        return { status: 500, payload: { ok: false, code: 'GIF_EXPORT_FAILED', message: error instanceof Error ? error.message : 'GIF export failed.' } }
+      }
+      response.writeHead(200, {
+        'Content-Type': 'image/gif',
+        'Content-Length': result.buffer.length,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      })
+      response.end(result.buffer)
+      return null
+    },
+  })
+
   const server = http.createServer(async (request, response) => {
     if (!request.url || !request.method) {
-      json(response, 400, {
-        ok: false,
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid request.',
-      })
+      json(response, 400, { ok: false, code: 'VALIDATION_ERROR', message: 'Invalid request.' })
       return
     }
 
@@ -145,237 +390,27 @@ export async function createAppServer({
     }
 
     const url = new URL(request.url, `http://${request.headers.host ?? '127.0.0.1'}`)
-    const path = url.pathname
 
     try {
-      if (request.method === 'GET' && path === '/api/health') {
-        json(response, 200, buildHealthPayload({ storageDriver, supportsAi }))
-        return
-      }
+      const matched = matchRoute(request.method, url.pathname, routes)
 
-      if (request.method === 'POST' && path === '/api/ai/workflow/sessions') {
-        const body = await readJson(request)
-        json(response, 201, await getWorkflowExecutionServiceInstance().createWorkflowSession(body))
-        return
-      }
-
-      const workflowMessageMatch = path.match(/^\/api\/ai\/workflow\/sessions\/([0-9a-f-]+)\/messages$/i)
-      if (request.method === 'POST' && workflowMessageMatch) {
-        const body = await readJson(request)
-        json(response, 200, await getWorkflowExecutionServiceInstance().sendWorkflowMessage(workflowMessageMatch[1], body))
-        return
-      }
-
-      const workflowExecuteMatch = path.match(/^\/api\/ai\/workflow\/sessions\/([0-9a-f-]+)\/execute$/i)
-      if (request.method === 'POST' && workflowExecuteMatch) {
-        const body = await readJson(request)
-        json(response, 200, await getWorkflowExecutionServiceInstance().executeWorkflowSession(workflowExecuteMatch[1], body))
-        return
-      }
-
-      if (request.method === 'GET' && path === '/api/diagrams') {
-        json(response, 200, await resolvedRepo.listDiagrams(Object.fromEntries(url.searchParams.entries())))
-        return
-      }
-
-      if (request.method === 'POST' && path === '/api/diagrams') {
-        const body = await readJson(request)
-        json(response, 201, await resolvedRepo.createDiagram(body))
-        return
-      }
-
-      const diagramMatch = path.match(/^\/api\/diagrams\/([0-9a-f-]+)$/i)
-      if (request.method === 'GET' && diagramMatch) {
-        const diagram = await resolvedRepo.getDiagramById(diagramMatch[1])
-        if (!diagram) {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Diagram not found.',
-          })
-          return
+      if (matched) {
+        const body = ['POST', 'PUT'].includes(request.method) ? await readJson(request) : {}
+        const result = await matched.handler({ params: matched.params, body, url, response })
+        if (result) {
+          json(response, result.status, result.payload)
         }
-
-        json(response, 200, normalizeDiagramDocument(diagram))
         return
       }
 
-      if (request.method === 'DELETE' && diagramMatch) {
-        const deleted = await resolvedRepo.softDeleteDiagram(diagramMatch[1])
-        if (!deleted) {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Diagram not found.',
-          })
-          return
-        }
-
-        noContent(response)
-        return
-      }
-
-      const draftMatch = path.match(/^\/api\/diagrams\/([0-9a-f-]+)\/draft$/i)
-      if (request.method === 'PUT' && draftMatch) {
-        const body = await readJson(request)
-        const result = await resolvedRepo.updateDraft(draftMatch[1], body)
-
-        if (result.kind === 'not-found') {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Diagram not found.',
-          })
-          return
-        }
-
-        if (result.kind === 'conflict') {
-          json(response, 409, {
-            ok: false,
-            code: 'VERSION_CONFLICT',
-            message: 'Draft has been updated by another session.',
-            latestVersion: result.document.latestVersion,
-            serverDocument: result.document,
-          })
-          return
-        }
-
-        json(response, 200, {
-          ok: true,
-          latestVersion: result.latestVersion,
-          savedAt: result.savedAt,
-        })
-        return
-      }
-
-      const revisionsMatch = path.match(/^\/api\/diagrams\/([0-9a-f-]+)\/revisions$/i)
-      if (request.method === 'GET' && revisionsMatch) {
-        json(response, 200, await resolvedRepo.listRevisions(revisionsMatch[1], Object.fromEntries(url.searchParams.entries())))
-        return
-      }
-
-      if (request.method === 'POST' && revisionsMatch) {
-        const body = await readJson(request)
-        const result = await resolvedRepo.createRevision(revisionsMatch[1], body)
-
-        if (result.kind === 'not-found') {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Diagram not found.',
-          })
-          return
-        }
-
-        if (result.kind === 'conflict') {
-          json(response, 409, {
-            ok: false,
-            code: 'VERSION_CONFLICT',
-            message: 'Draft has been updated by another session.',
-          })
-          return
-        }
-
-        json(response, 201, {
-          revisionId: result.revisionId,
-          version: result.version,
-          createdAt: result.createdAt,
-        })
-        return
-      }
-
-      const revisionDetailMatch = path.match(/^\/api\/diagrams\/([0-9a-f-]+)\/revisions\/([0-9a-f-]+)$/i)
-      if (request.method === 'GET' && revisionDetailMatch) {
-        const revision = await resolvedRepo.getRevision(revisionDetailMatch[1], revisionDetailMatch[2])
-        if (!revision) {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Revision not found.',
-          })
-          return
-        }
-
-        json(response, 200, revision)
-        return
-      }
-
-      const restoreMatch = path.match(/^\/api\/diagrams\/([0-9a-f-]+)\/restore\/([0-9a-f-]+)$/i)
-      if (request.method === 'POST' && restoreMatch) {
-        const body = await readJson(request)
-        const result = await resolvedRepo.restoreRevision(restoreMatch[1], restoreMatch[2], body)
-
-        if (result.kind === 'not-found') {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Diagram not found.',
-          })
-          return
-        }
-
-        if (result.kind === 'revision-not-found') {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Revision not found.',
-          })
-          return
-        }
-
-        if (result.kind === 'conflict') {
-          json(response, 409, {
-            ok: false,
-            code: 'VERSION_CONFLICT',
-            message: 'Draft has been updated by another session.',
-          })
-          return
-        }
-
-        json(response, 200, {
-          ok: true,
-          latestVersion: result.latestVersion,
-          savedAt: result.savedAt,
-          diagram: result.diagram,
-        })
-        return
-      }
-
-      const importMatch = path.match(/^\/api\/diagrams\/([0-9a-f-]+)\/import$/i)
-      if (request.method === 'POST' && importMatch) {
-        const body = await readJson(request)
-        const result = await resolvedRepo.importDiagram(importMatch[1], body)
-
-        if (result.kind === 'not-found') {
-          json(response, 404, {
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Diagram not found.',
-          })
-          return
-        }
-
-        if (result.kind === 'conflict') {
-          json(response, 409, {
-            ok: false,
-            code: 'VERSION_CONFLICT',
-            message: 'Draft has been updated by another session.',
-          })
-          return
-        }
-
-        json(response, 200, {
-          ok: true,
-          latestVersion: result.latestVersion,
-          savedAt: result.savedAt,
-        })
+      if (await tryServeFrontend(url.pathname, request.method, response)) {
         return
       }
 
       json(response, 404, {
         ok: false,
         code: 'NOT_FOUND',
-        message: `Route ${request.method} ${path} not found.`,
+        message: `Route ${request.method} ${url.pathname} not found.`,
       })
     } catch (error) {
       handleError(response, error)

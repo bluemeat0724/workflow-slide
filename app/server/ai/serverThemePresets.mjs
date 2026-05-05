@@ -1,4 +1,5 @@
 import themePresetDefs from '../../shared/themePresetDefs.json' with { type: 'json' }
+import { withAlpha } from '../render/utils.mjs'
 
 const presetAliases = new Map([
   ['accenture-purple', 'violet'],
@@ -18,14 +19,6 @@ function normalizeHex(value, fallback) {
   }
 
   return fallback
-}
-
-function withAlpha(hex, alpha) {
-  const safeHex = normalizeHex(hex, '#000000').slice(1)
-  const red = Number.parseInt(safeHex.slice(0, 2), 16)
-  const green = Number.parseInt(safeHex.slice(2, 4), 16)
-  const blue = Number.parseInt(safeHex.slice(4, 6), 16)
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
 function createPresetTheme(name, accent, accentDeep) {

@@ -1,6 +1,7 @@
 import type { Diagram } from '../model/diagram'
 import { BOARD_HEIGHT, BOARD_WIDTH } from '../model/diagram'
 import { buildEdgePath, getLaneBounds } from './geometry'
+import { buildEdgeAnimationPlan, getEdgeAnimationCycleDurationMs, resolveEdgeAnimationMode } from './edgeAnimation'
 import { getSectionSubtitle, getSectionTitle } from './sectionLabels'
 import { withAlpha } from './theme'
 
@@ -20,47 +21,8 @@ function getNodeClassName(type: Diagram['nodes'][number]['type']) {
   return 'node-card'
 }
 
-export function generateStandaloneHtml(diagram: Diagram): string {
-  const laneMarkup = diagram.lanes
-    .map((lane) => {
-      const bounds = getLaneBounds(diagram.lanes, lane.id)
-      const laneTitle = getSectionTitle(lane)
-      const laneSubtitle = getSectionSubtitle(lane)
-      return `
-        <section class="lane" style="top:${bounds.top}%;height:${bounds.height}%;background:${escapeHtml(diagram.theme.laneBackground)};">
-          <div class="lane__label">
-            <span class="lane__title">${escapeHtml(laneTitle)}</span>
-            ${laneSubtitle ? `<span class="lane__subtitle">${escapeHtml(laneSubtitle)}</span>` : ''}
-          </div>
-        </section>`
-    })
-    .join('')
-
-  const edgeMarkup = diagram.edges
-    .map((edge) => {
-      const marker = edge.emphasis === 'theme' ? 'url(#arrow-theme)' : 'url(#arrow-soft)'
-      return `<path d="${buildEdgePath(edge, diagram.nodes)}" class="edge-path edge-path--${edge.emphasis}" marker-end="${marker}" />`
-    })
-    .join('')
-
-  const nodeMarkup = diagram.nodes
-    .map(
-      (node) => `
-        <article class="${getNodeClassName(node.type)}" style="left:${node.x}%;top:${node.y}%;width:${node.width}%;min-height:${node.height}%;">
-          <h3>${escapeHtml(node.title)}</h3>
-          <p>${escapeHtml(node.description)}</p>
-          ${node.tag.trim() ? `<span class="node-card__tag">${escapeHtml(node.tag)}</span>` : ''}
-        </article>`,
-    )
-    .join('')
-
-  return `<!doctype html>
-<html lang="${diagram.meta.locale}">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escapeHtml(diagram.meta.title)}</title>
-<style>
+function buildStandaloneCss(diagram: Diagram): string {
+  return `
 :root {
   --bg-primary: ${diagram.theme.bgPrimary};
   --board-background: ${diagram.theme.boardBackground};
@@ -157,7 +119,7 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 14 9;
-  animation: dash 2.8s linear infinite;
+  stroke-dashoffset: var(--edge-dash-offset, 0);
 }
 .edge-path--theme {
   stroke: ${withAlpha(diagram.theme.accent, 0.58)};
@@ -219,7 +181,54 @@ body {
 .node-card--output {
   background: linear-gradient(135deg, rgba(11,11,15,.03), rgba(255,255,255,.92));
 }
-@keyframes dash { to { stroke-dashoffset: -44; } }
+`
+}
+
+export function generateStandaloneHtml(diagram: Diagram): string {
+  const edgeAnimationMode = resolveEdgeAnimationMode(diagram.meta.edgeAnimationMode)
+  const edgeAnimationPlan = buildEdgeAnimationPlan(diagram)
+  const laneMarkup = diagram.lanes
+    .map((lane) => {
+      const bounds = getLaneBounds(diagram.lanes, lane.id)
+      const laneTitle = getSectionTitle(lane)
+      const laneSubtitle = getSectionSubtitle(lane)
+      return `
+        <section class="lane" style="top:${bounds.top}%;height:${bounds.height}%;background:${escapeHtml(diagram.theme.laneBackground)};">
+          <div class="lane__label">
+            <span class="lane__title">${escapeHtml(laneTitle)}</span>
+            ${laneSubtitle ? `<span class="lane__subtitle">${escapeHtml(laneSubtitle)}</span>` : ''}
+          </div>
+        </section>`
+    })
+    .join('')
+
+  const edgeMarkup = diagram.edges
+    .map((edge) => {
+      const marker = edge.emphasis === 'theme' ? 'url(#arrow-theme)' : 'url(#arrow-soft)'
+      const animationStep = edgeAnimationPlan.edgeSteps[edge.id] ?? 0
+      return `<path d="${buildEdgePath(edge, diagram.nodes)}" class="edge-path edge-path--${edge.emphasis}" data-edge-id="${edge.id}" data-animation-step="${animationStep}" marker-end="${marker}" />`
+    })
+    .join('')
+
+  const nodeMarkup = diagram.nodes
+    .map(
+      (node) => `
+        <article class="${getNodeClassName(node.type)}" style="left:${node.x}%;top:${node.y}%;width:${node.width}%;min-height:${node.height}%;">
+          <h3>${escapeHtml(node.title)}</h3>
+          <p>${escapeHtml(node.description)}</p>
+          ${node.tag.trim() ? `<span class="node-card__tag">${escapeHtml(node.tag)}</span>` : ''}
+        </article>`,
+    )
+    .join('')
+
+  return `<!doctype html>
+<html lang="${diagram.meta.locale}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeHtml(diagram.meta.title)}</title>
+<style>
+${buildStandaloneCss(diagram)}
 </style>
 </head>
 <body>
@@ -240,6 +249,49 @@ body {
       ${nodeMarkup}
     </div>
   </section>
+  <script>
+    (() => {
+      const mode = ${JSON.stringify(edgeAnimationMode)}
+      const totalSteps = ${edgeAnimationPlan.totalSteps}
+      const stepDurationMs = ${edgeAnimationPlan.stepDurationMs}
+      const activeDurationMs = ${edgeAnimationPlan.activeDurationMs}
+      const totalDurationMs = ${getEdgeAnimationCycleDurationMs(edgeAnimationMode, edgeAnimationPlan)}
+      const dashTotalOffset = ${edgeAnimationPlan.dashTotalOffset}
+      const edgeElements = Array.from(document.querySelectorAll('.edge-path'))
+      const startedAt = performance.now()
+
+      const getEdgeOffset = (step, elapsedMs) => {
+        if (mode === 'all-active') {
+          const cycleElapsed = ((elapsedMs % totalDurationMs) + totalDurationMs) % totalDurationMs
+          return -dashTotalOffset * (cycleElapsed / totalDurationMs)
+        }
+
+        if (totalSteps === 0) return 0
+
+        const cycleElapsed = ((elapsedMs % totalDurationMs) + totalDurationMs) % totalDurationMs
+        const activeStart = step * stepDurationMs
+        const activeEnd = activeStart + activeDurationMs
+
+        if (cycleElapsed <= activeStart) return 0
+        if (cycleElapsed >= activeEnd) return -dashTotalOffset
+
+        const progress = (cycleElapsed - activeStart) / activeDurationMs
+        return -dashTotalOffset * progress
+      }
+
+      const tick = (now) => {
+        const elapsedMs = now - startedAt
+        edgeElements.forEach((edgeElement) => {
+          const step = Number(edgeElement.dataset.animationStep || '0')
+          edgeElement.style.setProperty('--edge-dash-offset', String(getEdgeOffset(step, elapsedMs)))
+        })
+
+        window.requestAnimationFrame(tick)
+      }
+
+      window.requestAnimationFrame(tick)
+    })()
+  </script>
 </body>
 </html>`
 }

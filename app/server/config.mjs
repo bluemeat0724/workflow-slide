@@ -102,6 +102,6 @@ export function getAiConfig() {
     enableThinking: parseBooleanEnv(process.env.ENABLE_THINKING, false),
     defaultReasoningEffort: process.env.DEFAULT_REASONING_EFFORT ?? 'medium',
     workflowJsonBaseUrl,
-    workflowJsonModelName: process.env.WORKFLOW_JSON_MODEL_NAME ?? defaultModelName,
+    workflowJsonModelName: process.env.WORKFLOW_JSON_MODEL_NAME || defaultModelName,
   }
 }

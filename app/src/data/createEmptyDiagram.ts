@@ -1,4 +1,4 @@
-import type { Diagram, Locale } from '../model/diagram'
+import { DEFAULT_EDGE_ANIMATION_MODE, type Diagram, type Locale } from '../model/diagram'
 import { getThemePresetById } from './themePresets'
 
 const defaultTheme = getThemePresetById('violet')?.theme
@@ -9,6 +9,7 @@ export function createEmptyDiagram(locale: Locale = 'zh-CN'): Diagram {
       title: locale === 'zh-CN' ? '未命名流程图' : 'Untitled Workflow',
       locale,
       version: '0.1.0',
+      edgeAnimationMode: DEFAULT_EDGE_ANIMATION_MODE,
     },
     theme: defaultTheme!,
     lanes: [

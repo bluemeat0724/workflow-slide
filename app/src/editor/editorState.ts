@@ -1,4 +1,4 @@
-import type { Diagram, Edge, Locale, MultiSelection, Node, NodeType, Selection, Theme } from '../model/diagram'
+import { DEFAULT_EDGE_ANIMATION_MODE, type Diagram, type Edge, type EdgeAnimationMode, type Locale, type MultiSelection, type Node, type NodeType, type Selection, type Theme } from '../model/diagram'
 import { createId } from '../utils/ids'
 import { NODE_MIN_HEIGHT, constrainNodeToLane, getLaneBounds } from '../utils/geometry'
 import { rebuildTheme } from '../utils/theme'
@@ -40,6 +40,7 @@ export type EditorAction =
   | { type: 'update-node-position'; nodeId: string; x: number; y: number; laneId: string }
   | { type: 'update-node-width'; nodeId: string; width: number }
   | { type: 'update-canvas-title'; title: string }
+  | { type: 'update-edge-animation-mode'; mode: EdgeAnimationMode }
   | { type: 'update-theme'; updates: UpdateThemeInput }
   | { type: 'apply-theme'; theme: Theme }
   | { type: 'update-edge'; edgeId: string; updates: Partial<Edge> }
@@ -48,9 +49,10 @@ export type EditorAction =
   | { type: 'delete-selected-nodes'; nodeIds: string[] }
 
 export function createEditorState(diagram: Diagram): EditorState {
+  const normalizedDiagram = normalizeDiagram(diagram)
   return {
-    diagram,
-    locale: diagram.meta.locale,
+    diagram: normalizedDiagram,
+    locale: normalizedDiagram.meta.locale,
     selection: { kind: 'canvas' },
     multiSelection: { nodeIds: [] },
   }
@@ -58,13 +60,15 @@ export function createEditorState(diagram: Diagram): EditorState {
 
 export function editorStateReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
-    case 'replace-diagram':
+    case 'replace-diagram': {
+      const normalizedDiagram = normalizeDiagram(action.diagram)
       return {
-        diagram: action.diagram,
-        locale: action.diagram.meta.locale,
+        diagram: normalizedDiagram,
+        locale: normalizedDiagram.meta.locale,
         selection: { kind: 'canvas' },
         multiSelection: { nodeIds: [] },
       }
+    }
 
     case 'set-locale':
       return {
@@ -271,6 +275,18 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
         },
       }
 
+    case 'update-edge-animation-mode':
+      return {
+        ...state,
+        diagram: {
+          ...state.diagram,
+          meta: {
+            ...state.diagram.meta,
+            edgeAnimationMode: action.mode,
+          },
+        },
+      }
+
     case 'update-theme':
       return {
         ...state,
@@ -357,4 +373,14 @@ function getDefaultLaneForNewNode(state: EditorState) {
   }
 
   return state.diagram.lanes[0]
+}
+
+function normalizeDiagram(diagram: Diagram): Diagram {
+  return {
+    ...diagram,
+    meta: {
+      ...diagram.meta,
+      edgeAnimationMode: diagram.meta.edgeAnimationMode ?? DEFAULT_EDGE_ANIMATION_MODE,
+    },
+  }
 }

@@ -39,47 +39,71 @@ export function createWorkflowJsonSubAgent({
     model: clientConfig.model,
 
     async generateWorkflowJsonText({ proposal, locale, themePresetId, theme, referenceDiagram }) {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
+      const baseMessages = [
+        {
+          role: 'system',
+          content: buildWorkflowJsonSystemPrompt(),
+        },
+        {
+          role: 'user',
+          content: buildWorkflowJsonUserPrompt({
+            proposal,
+            locale,
+            themePresetId,
+            theme,
+            referenceDiagram,
+          }),
+        },
+      ]
+      const retryCorrections = []
+      const maxRetries = 3
 
-      try {
-        const completion = await clientConfig.client.chat.completions.create({
-          model: clientConfig.model,
-          messages: [
-            {
-              role: 'system',
-              content: buildWorkflowJsonSystemPrompt(),
-            },
-            {
-              role: 'user',
-              content: buildWorkflowJsonUserPrompt({
-                proposal,
-                locale,
-                themePresetId,
-                theme,
-                referenceDiagram,
-              }),
-            },
-            {
-              role: 'assistant',
-              content: '```json\n',
-              prefix: true,
-            },
-          ],
-          stop: ['```'],
-          ...(clientConfig.enableThinking ? { thinking: { type: 'enabled' } } : {}),
-          ...(clientConfig.reasoningEffort ? { reasoning_effort: clientConfig.reasoningEffort } : {}),
-        }, {
-          signal: controller.signal,
-        })
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const messages = [
+          ...baseMessages,
+          ...retryCorrections,
+          { role: 'assistant', content: '```json\n', prefix: true },
+        ]
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
 
-        const generatedSuffix = extractTextContent(completion?.choices?.[0]?.message?.content)
-        const fencedText = `\`\`\`json\n${generatedSuffix}\`\`\``
-        return parseJsonBody(fencedText).jsonBody
-      } catch (error) {
-        throw normalizeAiError(error, 'Workflow JSON generation failed.')
-      } finally {
-        clearTimeout(timeoutId)
+        let generatedSuffix = ''
+
+        try {
+          const completion = await clientConfig.client.chat.completions.create({
+            model: clientConfig.model,
+            messages,
+            stop: ['```'],
+            ...(clientConfig.enableThinking ? { thinking: { type: 'enabled' } } : {}),
+            ...(clientConfig.reasoningEffort ? { reasoning_effort: clientConfig.reasoningEffort } : {}),
+          }, {
+            signal: controller.signal,
+          })
+
+          generatedSuffix = extractTextContent(completion?.choices?.[0]?.message?.content)
+          const fencedText = `\`\`\`json\n${generatedSuffix}\`\`\``
+          return parseJsonBody(fencedText).jsonBody
+        } catch (error) {
+          clearTimeout(timeoutId)
+
+          if (error && typeof error === 'object' && error.code === 'AI_RESPONSE_INVALID' && attempt < maxRetries) {
+            const fencedText = generatedSuffix ? `\`\`\`json\n${generatedSuffix}\`\`\`` : ''
+            console.warn('[workflow-json-agent] json-agent-retry', {
+              attempt: attempt + 1,
+              maxRetries,
+              error: error.message,
+              rawPreview: fencedText ? fencedText.slice(0, 280) : '(empty)',
+            })
+
+            retryCorrections.push(
+              { role: 'assistant', content: fencedText || '(empty response)' },
+              { role: 'user', content: 'Please return a valid fenced JSON payload.' },
+            )
+            continue
+          }
+
+          throw normalizeAiError(error, 'Workflow JSON generation failed.')
+        }
       }
     },
   }

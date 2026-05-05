@@ -55,6 +55,12 @@ describe('generateStandaloneHtml', () => {
 
     expect(html).toContain('fill="#0093d0"')
     expect(html).toContain('fill="rgba(11, 11, 15, 0.28)"')
+    expect(html).toContain('refX="7" refY="3"')
+    expect(html).toContain('d="M0,0 L0,6 L8,3 z"')
+    expect(html).toContain('const mode = "all-active"')
+    expect(html).toContain('data-edge-id="edge-1"')
+    expect(html).toContain('data-animation-step="0"')
+    expect(html).toContain("edgeElement.style.setProperty('--edge-dash-offset'")
     expect(html).not.toContain('fill="rgba(209,0,0,.76)"')
   })
 })

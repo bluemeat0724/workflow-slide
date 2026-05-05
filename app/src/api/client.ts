@@ -8,6 +8,7 @@ import type {
   CreateRevisionResponse,
   ExecuteWorkflowSessionRequest,
   ExecuteWorkflowSessionResponse,
+  ExportGifRequest,
   GetDiagramResponse,
   HealthCheckResponse,
   GetRevisionResponse,
@@ -84,7 +85,7 @@ async function parseJsonSafely(response: Response) {
   }
 }
 
-export function createDiagramApiClient({ baseUrl = '/api', fetchImpl = fetch }: DiagramApiClientConfig = {}) {
+export function createDiagramApiClient({ baseUrl = '/api/v1', fetchImpl = fetch }: DiagramApiClientConfig = {}) {
   async function request<T>(path: string, { method = 'GET', body, signal }: RequestOptions = {}): Promise<T> {
     const response = await fetchImpl(joinUrl(baseUrl, path), {
       method,
@@ -162,6 +163,24 @@ export function createDiagramApiClient({ baseUrl = '/api', fetchImpl = fetch }: 
 
     executeWorkflowSession(sessionId: Id, body: ExecuteWorkflowSessionRequest, signal?: AbortSignal) {
       return request<ExecuteWorkflowSessionResponse>(`ai/workflow/sessions/${sessionId}/execute`, { method: 'POST', body, signal })
+    },
+
+    async exportGif(body: ExportGifRequest, signal?: AbortSignal) {
+      const response = await fetchImpl(joinUrl(baseUrl, 'gif'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      })
+
+      if (!response.ok) {
+        const payload = await parseJsonSafely(response)
+        const errorPayload = payload as ApiErrorResponse | null
+        const message = errorPayload?.message ?? `GIF export failed with status ${response.status}`
+        throw new ApiClientError(message, response.status, errorPayload)
+      }
+
+      return response.blob()
     },
   }
 }

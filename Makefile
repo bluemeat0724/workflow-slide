@@ -1,6 +1,6 @@
 APP_DIR := app
 
-.PHONY: help install dev dev-remote dev-local-db \
+.PHONY: help install dev dev-local-only dev-remote dev-local-db \
         server server-dev db-migrate db-migrate-sqlite \
         build lint test preview \
         setup start-local-db
@@ -10,9 +10,10 @@ help: ## Show available targets
 	@echo ""
 	@echo "Quick Start:"
 	@echo "  install          Install dependencies"
-	@echo "  dev              Start frontend (local-only, no database)"
+	@echo "  dev              Start full dev (SQLite backend + Vite frontend)"
+	@echo "  dev-local-only   Start frontend only (no database)"
 	@echo "  dev-remote       Start frontend (remote API mode)"
-	@echo "  dev-local-db     Start local SQLite development server"
+	@echo "  dev-local-db     Same as dev (SQLite backend + Vite frontend)"
 	@echo ""
 	@echo "Backend:"
 	@echo "  server           Start backend server"
@@ -35,6 +36,9 @@ install:
 
 dev:
 	cd $(APP_DIR) && npm run dev
+
+dev-local-only:
+	cd $(APP_DIR) && npm run dev:local-only
 
 dev-remote:
 	cd $(APP_DIR) && npm run dev:remote

@@ -4,6 +4,7 @@ import path from 'node:path'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
+const rootEnvFile = path.resolve(projectRoot, '..', '.env')
 
 const serverEnv = {
   ...process.env,
@@ -15,7 +16,7 @@ const serverEnv = {
   DEFAULT_USER_NAME: 'Local Dev User',
 }
 
-const server = spawn('node', ['--env-file=.env', 'server/index.mjs'], {
+const server = spawn('node', ['--env-file', rootEnvFile, 'server/index.mjs'], {
   cwd: projectRoot,
   env: serverEnv,
   stdio: 'inherit',

@@ -48,6 +48,13 @@
 - 补充服务端能力探测接口：
   - `GET /api/health` 返回数据库能力与 `supportsAi`
   - 前端改为依据 health probe 控制 agent 入口显隐
+- 实现流程图 GIF 导出功能（方案 C：后端离线渲染）：
+  - 新增 `app/server/render/gifExporter.mjs`，基于 `@napi-rs/canvas` + `gifenc` 实现 1600x900 画布逐帧渲染
+  - 完整重现背景渐变、网格纹理、board 阴影、泳道区域、节点卡片（圆角/阴影/渐变/文字排版/tag）、边缘路径（Cubic Bezier + 虚线 dash 动画）+ 箭头
+  - 使用 Floyd-Steinberg 抖动算法缓解 GIF 256 色调色板量化损失
+  - 渲染 2.8s 周期 × 20fps = 56 帧，dashOffset 逐帧推进
+  - 新增 `POST /api/gif` 路由，接收 Diagram JSON，返回 `image/gif` 二进制流
+  - 前端新增 `api.exportGif()` 方法、`ExportGif` 按钮（工具栏）、中英文 i18n
   - 修复 `local-only` 模式下残留 `VITE_API_BASE_URL` 仍可能显示 agent 的问题
 - 修复 DeepSeek prefix 执行配置：
   - 当 `OPENAI_API_BASE=https://api.deepseek.com` 且未单独配置 `WORKFLOW_JSON_BASE_URL` 时
@@ -68,6 +75,17 @@
   - 后端 conversation agent 不再依赖内存 session 中累积的消息历史，避免失败重试导致上下文无限膨胀
 - 增强 AI conversation agent 诊断能力：
   - 当上游返回空 content 或非 JSON 文本时，返回结构化 details
+- GIF 导出重构（PPT 展示优化方案）：
+  - 重构 `app/src/utils/exportHtml.ts`：新增 `ExportProfile` 类型（`standalone-html` / `presentation-gif`），CSS 按 profile 分离为 `buildStandaloneCss` 和 `buildPresentationCss`，保持向後兼容
+  - 新增 `app/server/render/presentationProfile.mjs`：演示态视觉参数配置（尺寸、动画、线条、节点、泳道、board、字体族）
+  - 新增 `app/server/render/exportTemplate.mjs`：服务端演示态 HTML 生成器，基于 `presentationProfile` 生成简化视觉（无网格纹理、无发光滤镜、节点更不透明、更粗边线、固定字号）
+  - 新增 `app/server/render/browserFrameCapture.mjs`：基于 Playwright headless Chromium 逐帧截图（1600x900, 2x device scale, 12fps, 1.4s），通过 `--dash-offset` CSS 变量控制动画帧推进
+  - 新增 `app/server/render/gifEncoder.mjs`：全局调色板采样（从所有帧采样 50000 像素）+ ordered dithering 替代 Floyd-Steinberg，消除时间轴颜色漂移
+  - 重写 `app/server/render/gifExporter.mjs` 为编排入口，旧 Canvas 手写重绘代码移至 `gifExporterLegacy.mjs` 并保持向后兼容
+  - 更新 `app/src/api/contracts.ts`：`ExportGifRequest` 改为结构化对象 `{ diagram, profile?, size?, loop? }`
+  - 更新 `app/src/App.tsx`：导出 GIF 时发送结构化请求体
+  - 更新 `app/server/index.mjs`：GIF 端点适配新旧两种返回格式（Buffer / { buffer }）
+  - 安装 `playwright` 依赖并下载 Chromium
   - 服务端输出受控诊断日志，包含 `finish_reason`、content 形态、part 类型和 refusal 信息
   - 补充单测覆盖空响应诊断路径
 - 新增 `workflowConversationPayloadDiagnosis.test.mjs`：
@@ -120,6 +138,16 @@
   - `cd app && npm run lint`
   - `cd app && npm run build`
 
+2026-05-05
+
+- 修复 GIF 导出未跟随“顺序播放”连线动画模式的问题：
+  - `app/server/render/exportTemplate.mjs` 内嵌与前端 HTML 导出一致的连线动画控制脚本，统一 `all-active` / `sequential` 的 dashOffset 计算
+  - `app/server/render/browserFrameCapture.mjs` 改为逐帧调用页面内 `__setEdgeAnimationElapsedMs()`，并在截图前等待两次 `requestAnimationFrame`，确保顺序播放的偏移状态已完成重绘
+  - 补充 `exportTemplate.test.mjs` 回归断言，验证导出模板包含 `sequential` 模式配置与动画驱动函数
+- 精简 README.md：移除详细技术架构、启动模式详解、Docker 部署等内容，仅保留项目简介与简化启动说明。
+- 新增 `dev_docs/architecture.md`：拆分技术架构、目录结构、AI Agent 详细配置和 GIF 导出说明。
+- 新增 `dev_docs/deployment.md`：拆分三种启动模式详解、后端/数据库命令和 Docker 部署说明。
+
 - 代码审查：检查未 commit 的全部变更代码质量，生成优化文档 `dev_docs/code_review_optimization.md`
   - 发现 1 个严重错误：`WorkflowAgentWindow.tsx` 中 React Hooks 在早期 return 后调用（lint error）
   - 高优先级问题：App.tsx 单体过大（1200+ 行）、前后端主题预设重复、`ensureAgentSession` 竞态条件、`WorkflowChatMessageList` 硬编码字符串缺少 i18n
@@ -152,3 +180,128 @@
   - 覆盖检查命令：`build`、`lint`、`test`、`preview`
   - 默认 `help` 目标列出所有可用命令
   - 更新 `README.md` 补充 Makefile 使用说明
+- 修复 `@vitejs/plugin-react` 与 Vite 8 不兼容问题：
+  - `@vitejs/plugin-react@4.7.0` 的 peer dep 仅支持 `vite@^4/^5/^6/^7`，升级到 `^6.0.1`（Vite 8 配套版本）
+  - v6 不再依赖 Babel，改用 Vite 8 内置 Oxc 处理 React Refresh
+  - `npm install` 通过，0 vulnerabilities；`npm run lint` 通过
+- 修复 `gifenc` 模块 ESM 导入兼容性问题：
+  - `gifenc` 的 `package.json` 缺少 `"type": "module"` 和 `"exports"` 字段
+  - Node.js ESM 加载时通过 `"main"` 解析到 CJS 入口，不支持命名导出 `{ GIFEncoder, quantize, applyPalette }`
+  - 改为 `import gifenc from 'gifenc'` + `const { ... } = gifenc` 解构方式
+  - 验证通过：`npm run lint`、服务器导入链加载正常
+- 修复 GIF 导出 `Path2D` 不可用问题：
+  - `@napi-rs/canvas` 不提供浏览器 `Path2D` API，导致 `ReferenceError: Path2D is not defined`
+  - `buildEdgePath` 改为返回控制点坐标 `{ startX, startY, c1x, c1y, c2x, c2y, endX, endY }` 替代 SVG `d` 字符串
+  - `renderEdges` 改用 `ctx.beginPath()` + `ctx.moveTo()` + `ctx.bezierCurveTo()` 直接绘制
+  - 清理不再使用的 `computeEdgeEndAngle` 死代码
+  - `npm run lint` 通过
+- 修复 GIF 导出中文字体无法显示问题：
+  - `@napi-rs/canvas` 使用系统 CoreText 字体数据库，系统已含 `Hiragino Sans GB`、`Heiti TC` 等中文字体
+  - 根因是 font-family 字符串仅指定了西文字体（Georgia / Courier New / Arial），无中文字体回退
+  - 为全部 5 处 font-family 添加 `"Hiragino Sans GB"`, `"PingFang SC"`, `"Microsoft YaHei"` 中文字体 fallback
+  - 覆盖：泳道标题、泳道副标题、节点标题、节点描述、节点标签
+  - `npm run lint` 通过
+- 检查新版 GIF 导出实现，定位“点击导出后长时间无响应”问题：
+  - 复现确认阻塞点在 `playwright` 启动 headless Chromium，而非 GIF 编码阶段
+  - 当前环境下 Chromium 启动直接失败：`bootstrap_check_in ... Permission denied (1100)`
+  - 修复 `browserFrameCapture.mjs`：真正使用 `size` 预设尺寸，并在 page/context/browser release 上补齐 `try/finally`
+  - 将 Chromium 启动失败包装为明确导出错误，避免前端只表现为长时间等待
+  - 更新 `/api/gif` 路由与前端状态提示，返回并展示实际失败原因
+  - 更新 `README.md` 补充新版 GIF 导出依赖 Playwright/Chromium 运行时
+- GIF 导出功能代码审查：
+  - 覆盖 `app/server/render/` 全部 6 个新增文件 + 10 个关联修改文件
+  - 发现 8 个问题：2 个中等（前端 presentation 死代码、跨模块依赖 TS 源码）、3 个低（工具函数三处重复、CSS 常量硬编码、返回值类型不一致）、3 个提示（入参校验缺失、清理吞错误、CSS 不同步）
+  - 生成 `dev_docs/gif_export_code_review.md` 含问题详情、优化方案、优先级排序
+
+2026-05-05
+
+- 新增连线动画模式配置：
+  - `Diagram.meta` 新增 `edgeAnimationMode`，支持 `all-active` 和 `sequential`
+  - 默认模式设为 `all-active`
+  - `Inspector` 画布属性区新增连线动画模式切换入口
+- 连线动画渲染与导出统一按用户所选模式工作：
+  - 编辑器画布根据当前模式计算每条边的 `dash offset`
+  - 独立 HTML 导出和 GIF 导出都跟随当前画布的模式，而不是写死某一种动画
+  - `all-active` 保持所有边同时循环流动；`sequential` 保持阶段顺序播放，支持多起始节点并行
+- 更新前后端兼容处理：
+  - `app/src/utils/json.ts` 和 `app/server/schema.mjs` 对旧数据缺失 `edgeAnimationMode` 时回退到 `all-active`
+  - `editorState` 对载入 diagram 做默认值归一化，避免旧远端数据影响预览与导出
+- 补充测试覆盖：
+  - `src/editor/editorState.test.ts` 新增动画模式更新测试
+  - `src/utils/edgeAnimation.test.ts` 同时覆盖 `all-active` 和 `sequential`
+  - 更新 `src/utils/exportHtml.test.ts` 与 `server/render/exportTemplate.test.mjs`
+- 验证通过：
+  - `cd app && npm run test -- src/utils/edgeAnimation.test.ts src/utils/exportHtml.test.ts src/editor/editorState.test.ts server/render/exportTemplate.test.mjs`
+  - `cd app && npm run lint`
+  - `cd app && npm run build`
+
+- 连接线动画改为按图结构顺序播放：
+  - 新增 `app/src/utils/edgeAnimation.ts` 和 `app/server/render/edgeAnimationPlan.mjs`
+  - 按有向图入度自动识别起始节点，多个起始节点的首段边同阶段并行动画
+  - 后续阶段按最长上游层级推进，已播放阶段保持停住，循环时整体重置
+- 前端画布、独立 HTML 导出、GIF 导出统一切换到逐边 `dash offset` 计算，不再使用所有连线统一无限流动的 CSS 动画
+- 补充测试覆盖：
+  - `src/utils/edgeAnimation.test.ts` 覆盖“双起始节点并行 + 汇合后继续”阶段推导
+  - 更新 `src/utils/exportHtml.test.ts` 和 `server/render/exportTemplate.test.mjs`
+- 验证通过：
+  - `cd app && npm run test -- src/utils/edgeAnimation.test.ts src/utils/exportHtml.test.ts server/render/exportTemplate.test.mjs`
+  - `cd app && npm run lint`
+  - `cd app && npm run build`
+
+- 新增生产部署配置：
+  - 根目录新增 `docker-compose.yml`，默认编排 `api`（Node HTTP API）和 `postgres`（PostgreSQL）
+  - 根目录新增 `.env.example`，专用于 Docker Compose 部署变量
+  - 根目录新增 `.dockerignore`，减少镜像构建上下文
+- 新增容器镜像定义：
+  - `app/Dockerfile.server`：基于 Playwright 官方运行时构建 API 镜像，内置 Chromium 运行环境
+  - `app/scripts/docker-entrypoint.sh`：容器启动时根据 `STORAGE_DRIVER` 自动执行 PostgreSQL / SQLite 迁移后再启动服务
+- 补齐 GIF 导出部署约束：
+  - `browserFrameCapture.mjs` 新增 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`、`GIF_EXPORT_BROWSER_LAUNCH_TIMEOUT_MS`、`GIF_EXPORT_USE_SANDBOX` 环境变量支持
+  - 更新 `app/.env.example` 记录 GIF 导出可选运行参数
+  - 更新 `README.md`，明确区分本地 `app/.env` 与部署根目录 `.env` 的用途，并补充 GIF 导出依赖 Playwright/Chromium/glibc 运行时的说明
+- 统一环境变量入口，减少两套 `.env` 带来的维护成本：
+  - `app/package.json` 中的 `server` / `server:dev` / `db:migrate` / `db:migrate:sqlite` 改为读取根目录 `../.env`
+  - `app/vite.config.ts` 新增 `envDir='..'`，让 `vite` / `vite build` / `vite preview` 统一从仓库根目录加载 `VITE_*`
+  - `app/scripts/dev-local-db.mjs` 改为用根目录 `.env` 启动本地 SQLite server
+  - 根目录 `.env.example` 扩展为本地开发 + Docker Compose 共用模板
+  - `app/.env.example` 降级为兼容提示，不再作为第二套真实模板维护
+  - 更新 `README.md` 和 `AGENTS.md`，统一说明环境变量主入口为仓库根目录 `.env`
+- 取消 Docker 中的 Nginx 残留配置：
+  - 删除 `app/Dockerfile.frontend`
+  - `docker-compose.yml` 改为只暴露 `api` 服务端口，由同一个 Node 容器同时托管前端静态构建产物和 `/api`
+  - `app/Dockerfile.server` 新增前端 build stage，并在运行镜像内复制 `dist/`
+  - `app/server/index.mjs` 新增静态文件与 SPA fallback 处理，替代原先的 Nginx 职责
+  - 更新 `README.md`，移除 Nginx 相关部署说明
+- 扩展 Docker Compose 部署模式，支持三套运行组合：
+  - `--profile pg`：`frontend-pg` + `server-pg` + `postgres`
+  - 通过 `COMPOSE_PROFILES=sqlite` 默认 `docker compose up`：`frontend-sqlite` + `server-sqlite`
+  - `--profile front-only`：`frontend-only`
+  - 新增 `app/Dockerfile.frontend`，单独构建静态前端镜像
+  - 新增 `app/nginx/frontend.remote.conf` 与 `app/nginx/frontend.local-only.conf`
+  - `remote` 前端容器通过 Nginx 把 `/api/*` 反代到 compose 网络中的 `server` 别名
+  - 更新根 `.env.example` 和 `README.md`，补充三种 profile 的启动方式、端口变量和限制说明
+
+- 修复“清空本地草稿”需要刷新页面才生效的问题：
+  - `app/src/storage/persistenceService.ts` 新增 `clearDraft()`，清理本地缓存时会同时取消待执行 autosave，避免旧草稿被定时器重新写回
+  - `app/src/App.tsx` 改为在点击后立即替换当前 diagram：本地模式重置为空白图，远端模式回退到服务端最新草稿
+  - 新增 `app/src/storage/persistenceService.test.ts` 覆盖本地清空、取消待保存、远端回退三条回归用例
+
+- 修复 GIF 导出箭头明显大于编辑器原图的问题：
+  - `app/server/render/exportTemplate.mjs` 改为使用与编辑器一致的箭头几何（`8x6` 三角）和锚点（`refX=7`, `refY=3`）
+  - `app/server/render/presentationProfile.mjs` 将 GIF 导出连接线宽度和虚线节奏收敛到编辑器同款配置，减少导出图与画布的视觉偏差
+  - `app/src/utils/exportHtml.ts` 同步箭头 marker 几何，避免 HTML / GIF 两条导出链路继续分叉
+  - 新增 `app/server/render/exportTemplate.test.mjs`，并扩展 `app/src/utils/exportHtml.test.ts` 覆盖箭头回归检查
+- 2026-05-05: Adjusted edge anchor selection to use node-boundary gap heuristics instead of center-point delta only, fixing unnatural arrow directions for high-to-low node connections in both editor and export paths. Added geometry coverage and aligned legacy GIF arrowhead rotation with the path tangent.
+- 2026-05-05: Tightened edge routing again so vertically separated nodes always prefer top/bottom anchors, and made path curvature follow the chosen anchor side to keep marker-end pointing down/up instead of flipping horizontal near the target.
+
+2026-05-06
+
+- 基于当前仓库代码结构生成 `dev_docs/code_optimization_plan.md`：
+  - 扫描前后端热点模块、测试分布和仓储重复实现
+  - 明确 `App.tsx`、`persistenceService.ts`、`useWorkflowAgent.ts`、`useCanvasInteraction.ts`、`server/index.mjs` 为优先优化对象
+  - 给出 6 个阶段的优化顺序、验收标准和不建议直接执行的大迁移项
+
+- 同步更新项目文档，使其与当前代码结构保持一致：
+  - `README.md`：补充 Makefile 快捷命令章节缺失的 `server-dev`、`db-migrate`、`db-migrate-sqlite`、`setup`、`start-local-db`、`preview` 命令
+  - `AGENTS.md`：更新 Repository Layout，补充 `useCanvasInteraction.ts`、`useDiagramLibrary.ts`、`persistenceService.test.ts`、`utils/agentHelpers.ts`、`utils/edgeAnimation.ts`、`styles/agent.css`、`shared/themePresetDefs.json`、`server/routes.mjs` 等新增文件；扩展 `server/ai/` 和 `server/render/` 目录说明；更新 Key data flow 链入 `agentHelpers.ts`、`edgeAnimation.ts`、`themePresetDefs.json`、`routes.mjs`
+  - `dev_docs/architecture.md`：更新主要目录列表，补充 `hooks/`、`utils/`、`shared/` 及 server 子目录的完整文件描述

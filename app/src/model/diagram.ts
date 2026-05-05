@@ -1,4 +1,7 @@
 export type Locale = 'zh-CN' | 'en-US'
+export type EdgeAnimationMode = 'all-active' | 'sequential'
+
+export const DEFAULT_EDGE_ANIMATION_MODE: EdgeAnimationMode = 'all-active'
 
 export type Theme = {
   name: string
@@ -49,6 +52,7 @@ export type Diagram = {
     title: string
     locale: Locale
     version: string
+    edgeAnimationMode: EdgeAnimationMode
   }
   theme: Theme
   lanes: Lane[]

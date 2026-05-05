@@ -1,6 +1,6 @@
-import { useEffect, useEffectEvent, useReducer, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { createDiagramApiClient } from './api/client'
-import type { DiagramListItem, DiagramRevision } from './api/contracts'
+import type { DiagramListItem } from './api/contracts'
 import { WorkflowAgentLauncher } from './components/agent/WorkflowAgentLauncher'
 import { WorkflowAgentWindow } from './components/agent/WorkflowAgentWindow'
 import { Canvas } from './components/canvas/Canvas'
@@ -12,9 +12,10 @@ import { getRuntimeConfig } from './config/runtime'
 import { createEmptyDiagram } from './data/createEmptyDiagram'
 import { getThemePresetById, getThemePresetId, type ThemePresetId } from './data/themePresets'
 import { createEditorState, editorStateReducer } from './editor/editorState'
+import { useDiagramLibrary } from './hooks/useDiagramLibrary'
 import { useWorkflowAgent } from './hooks/useWorkflowAgent'
 import { getMessages } from './i18n'
-import type { Diagram, Edge, Locale, Node, Selection } from './model/diagram'
+import type { Diagram, Edge, EdgeAnimationMode, Locale, Node, Selection } from './model/diagram'
 import { createPersistenceService, type PersistenceService } from './storage/persistenceService'
 import { downloadTextFile, slugifyFileName } from './utils/download'
 import { generateStandaloneHtml } from './utils/exportHtml'
@@ -63,30 +64,42 @@ function App() {
   const [status, setStatus] = useState(initialState.restored ? getMessages(initialState.diagram.meta.locale).status.draftRestored : '')
   const [capabilities, setCapabilities] = useState(STATIC_CAPABILITIES)
   const [isCreatingRemote, setIsCreatingRemote] = useState(false)
-  const [libraryMode, setLibraryMode] = useState<'diagrams' | 'revisions' | null>(null)
-  const [diagramItems, setDiagramItems] = useState<DiagramListItem[]>([])
-  const [revisionItems, setRevisionItems] = useState<DiagramRevision[]>([])
-  const [diagramKeyword, setDiagramKeyword] = useState('')
-  const [diagramPage, setDiagramPage] = useState(1)
-  const [diagramTotalPages, setDiagramTotalPages] = useState(1)
-  const [revisionPage, setRevisionPage] = useState(1)
-  const [revisionTotalPages, setRevisionTotalPages] = useState(1)
-  const [deletingDiagramId, setDeletingDiagramId] = useState<string | null>(null)
+  const [isExportingGif, setIsExportingGif] = useState(false)
   const [isPersistenceReady, setIsPersistenceReady] = useState(false)
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const persistenceRef = useRef<PersistenceService | null>(null)
   const skipNextAutosaveRef = useRef(false)
   const localeRef = useRef(editorState.locale)
-  const diagramSearchTimerRef = useRef<number | null>(null)
-  const diagramListRequestIdRef = useRef(0)
-  const revisionListRequestIdRef = useRef(0)
-  const diagramListAbortRef = useRef<AbortController | null>(null)
-  const revisionListAbortRef = useRef<AbortController | null>(null)
   const { diagram, locale, multiSelection, selection } = editorState
   const messages = getMessages(locale)
   const activeThemePresetId = getThemePresetId(diagram.theme)
   const supportsAi = capabilities.supportsAi
   const themeVars = getThemeCssVars(diagram.theme)
+
+  const {
+    libraryMode,
+    diagramItems,
+    revisionItems,
+    diagramKeyword,
+    diagramPage,
+    diagramTotalPages,
+    revisionPage,
+    revisionTotalPages,
+    deletingDiagramId,
+    setLibraryMode,
+    handleDiagramSearch,
+    handleDiagramPageChange,
+    handleRevisionPageChange,
+    handleOpenDiagramList,
+    handleOpenRevisionHistory,
+    handleDeleteDiagram,
+    loadRevisionHistory,
+  } = useDiagramLibrary({
+    api,
+    remoteDiagramId: REMOTE_DIAGRAM_ID,
+    messages,
+    setStatus,
+  })
 
   const handleDiagramApplied = async (appliedDiagram: Diagram) => {
     skipNextAutosaveRef.current = true
@@ -198,6 +211,10 @@ function App() {
     dispatch({ type: 'update-canvas-title', title })
   }
 
+  function handleUpdateEdgeAnimationMode(mode: EdgeAnimationMode) {
+    dispatch({ type: 'update-edge-animation-mode', mode })
+  }
+
   function handleUpdateTheme(updates: Partial<Pick<Diagram['theme'], 'name' | 'bgPrimary' | 'textPrimary' | 'textMuted' | 'accent' | 'accentDeep'>>) {
     dispatch({ type: 'update-theme', updates })
   }
@@ -284,6 +301,29 @@ function App() {
     setStatus(messages.status.htmlExported)
   }
 
+  async function handleExportGif() {
+    if (!api || isExportingGif) return
+
+    setIsExportingGif(true)
+    setStatus(messages.status.persistenceSaving)
+
+    try {
+      const blob = await api.exportGif({ diagram })
+      const filename = `${slugifyFileName(diagram.meta.title)}.gif`
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      anchor.click()
+      URL.revokeObjectURL(url)
+      setStatus(messages.status.gifExported)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : messages.status.gifExportFailed)
+    } finally {
+      setIsExportingGif(false)
+    }
+  }
+
   function handleImportJsonClick() {
     importInputRef.current?.click()
   }
@@ -338,91 +378,6 @@ function App() {
     }
   }
 
-  async function loadDiagramList(page = 1, keyword = diagramKeyword) {
-    if (!api) {
-      return
-    }
-
-    diagramListAbortRef.current?.abort()
-    const controller = new AbortController()
-    diagramListAbortRef.current = controller
-    const requestId = ++diagramListRequestIdRef.current
-
-    try {
-      const response = await api.listDiagrams({
-        page,
-        pageSize: 8,
-        keyword: keyword.trim() || undefined,
-      }, controller.signal)
-
-      if (requestId !== diagramListRequestIdRef.current) {
-        return
-      }
-
-      setDiagramItems(response.items)
-      setDiagramPage(response.page)
-      setDiagramTotalPages(Math.max(1, Math.ceil(response.total / response.pageSize)))
-      setStatus(messages.status.diagramsLoaded)
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return
-      }
-
-      setStatus(messages.status.diagramsLoadFailed)
-    } finally {
-      if (diagramListAbortRef.current === controller) {
-        diagramListAbortRef.current = null
-      }
-    }
-  }
-
-  async function handleOpenDiagramList() {
-    setLibraryMode('diagrams')
-    await loadDiagramList(1)
-  }
-
-  const handleDiagramSearch = useEffectEvent((keyword: string) => {
-    void loadDiagramList(1, keyword)
-  })
-
-  async function loadRevisionHistory(page = 1) {
-    if (!REMOTE_DIAGRAM_ID || !api) {
-      return
-    }
-
-    revisionListAbortRef.current?.abort()
-    const controller = new AbortController()
-    revisionListAbortRef.current = controller
-    const requestId = ++revisionListRequestIdRef.current
-
-    try {
-      const response = await api.listRevisions(REMOTE_DIAGRAM_ID, { page, pageSize: 8 }, controller.signal)
-      if (requestId !== revisionListRequestIdRef.current) {
-        return
-      }
-
-      setRevisionItems(response.items)
-      setRevisionPage(response.page)
-      setRevisionTotalPages(Math.max(1, Math.ceil(response.total / response.pageSize)))
-      setStatus(messages.status.revisionsLoaded)
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return
-      }
-
-      setStatus(messages.status.revisionsLoadFailed)
-    } finally {
-      if (revisionListAbortRef.current === controller) {
-        revisionListAbortRef.current = null
-      }
-    }
-  }
-
-  async function handleOpenRevisionHistory() {
-    setLibraryMode('revisions')
-    await loadRevisionHistory(1)
-  }
-
   async function handleSaveRevision() {
     if (!REMOTE_DIAGRAM_ID || !persistenceRef.current || !capabilities.supportsRevisionHistory) {
       return
@@ -456,38 +411,16 @@ function App() {
     window.location.assign(nextUrl.toString())
   }
 
-  async function handleDeleteDiagram(item: DiagramListItem) {
-    if (!api) {
-      return
-    }
-
-    const confirmMessage = messages.library.deleteDiagramConfirm.replace('{title}', item.title)
-    if (!window.confirm(confirmMessage)) {
-      return
-    }
-
-    setDeletingDiagramId(item.id)
-
-    try {
-      await api.deleteDiagram(item.id)
-
-      if (item.id === REMOTE_DIAGRAM_ID) {
+  async function handleDeleteDiagramWrapper(item: DiagramListItem) {
+    await handleDeleteDiagram(item, (deletedId) => {
+      if (deletedId === REMOTE_DIAGRAM_ID) {
         const nextUrl = new URL(window.location.href)
         nextUrl.searchParams.delete('diagramId')
         nextUrl.searchParams.set('new', '1')
         nextUrl.searchParams.set('locale', locale)
         window.location.assign(nextUrl.toString())
-        return
       }
-
-      const nextPage = diagramItems.length === 1 && diagramPage > 1 ? diagramPage - 1 : diagramPage
-      await loadDiagramList(nextPage)
-      setStatus(messages.status.diagramDeleted)
-    } catch {
-      setStatus(messages.status.diagramDeleteFailed)
-    } finally {
-      setDeletingDiagramId((current) => (current === item.id ? null : current))
-    }
+    })
   }
 
   async function handleRestoreRevision(revisionId: string) {
@@ -524,41 +457,17 @@ function App() {
     window.history.replaceState(null, '', nextUrl.toString())
   }, [])
 
-  useEffect(() => {
-    if (libraryMode !== 'diagrams') {
-      return
+  async function handleClearDraft() {
+    const result = await persistenceRef.current?.clearDraft() ?? {
+      source: 'empty' as const,
+      diagram: createEmptyDiagram(locale),
     }
+    const nextDiagram = result.source === 'server' ? result.document.diagram : result.diagram
 
-    if (diagramSearchTimerRef.current !== null) {
-      window.clearTimeout(diagramSearchTimerRef.current)
-    }
-
-    diagramSearchTimerRef.current = window.setTimeout(() => {
-      handleDiagramSearch(diagramKeyword)
-    }, 250)
-
-    return () => {
-      if (diagramSearchTimerRef.current !== null) {
-        window.clearTimeout(diagramSearchTimerRef.current)
-        diagramSearchTimerRef.current = null
-      }
-    }
-  }, [diagramKeyword, libraryMode])
-
-  useEffect(() => {
-    if (libraryMode) {
-      return
-    }
-
-    diagramListAbortRef.current?.abort()
-    revisionListAbortRef.current?.abort()
-    diagramListRequestIdRef.current += 1
-    revisionListRequestIdRef.current += 1
-  }, [libraryMode])
-
-  function handleClearDraft() {
-    persistenceRef.current?.clearLocalCache()
     window.localStorage.removeItem(LOCAL_DRAFT_KEY)
+    skipNextAutosaveRef.current = true
+    dispatch({ type: 'replace-diagram', diagram: nextDiagram })
+    setLibraryMode(null)
     setStatus(messages.status.draftCleared)
   }
 
@@ -588,19 +497,25 @@ function App() {
     }
   }
 
+  const healthFetchedRef = useRef(false)
+
   useEffect(() => {
-    if (!api) {
+    if (!api || healthFetchedRef.current) {
       return
     }
 
     const controller = new AbortController()
 
     void api.getHealth(controller.signal).then((health) => {
+      healthFetchedRef.current = true
       setCapabilities((current) => ({
         ...current,
         supportsAi: health.capabilities.supportsAi,
       }))
-    }).catch(() => {
+    }).catch((err) => {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return
+      }
       setCapabilities((current) => ({
         ...current,
         supportsAi: false,
@@ -694,8 +609,6 @@ function App() {
 
     return () => {
       cancelled = true
-      diagramListAbortRef.current?.abort()
-      revisionListAbortRef.current?.abort()
       disposeAgent()
       persistence.dispose()
       persistenceRef.current = null
@@ -754,7 +667,9 @@ function App() {
         showCreateRemote={capabilities.supportsCreateRemoteDocument && !REMOTE_DIAGRAM_ID}
         showDiagramList={capabilities.supportsDiagramLibrary}
         showRevisionActions={capabilities.supportsRevisionHistory && Boolean(REMOTE_DIAGRAM_ID && isPersistenceReady)}
+        showExportGif={Boolean(api)}
         isCreatingRemote={isCreatingRemote}
+        isExportingGif={isExportingGif}
         onCreateNewDiagram={handleCreateNewDiagram}
         onLocaleChange={handleLocaleChange}
         onCreateRemote={handleCreateRemote}
@@ -764,6 +679,7 @@ function App() {
         onImportJson={handleImportJsonClick}
         onExportJson={handleExportJson}
         onExportHtml={handleExportHtml}
+        onExportGif={handleExportGif}
         onClearDraft={handleClearDraft}
       />
       {status ? <p className="app-status">{status}</p> : null}
@@ -798,6 +714,7 @@ function App() {
           selection={selection}
           messages={messages}
           onUpdateCanvasTitle={handleUpdateCanvasTitle}
+          onUpdateEdgeAnimationMode={handleUpdateEdgeAnimationMode}
           onUpdateLane={handleUpdateLane}
           onDeleteLane={handleDeleteLane}
           onUpdateNode={handleUpdateNode}
@@ -823,11 +740,11 @@ function App() {
         revisionTotalPages={revisionTotalPages}
         deletingDiagramId={deletingDiagramId}
         onClose={() => setLibraryMode(null)}
-        onDiagramKeywordChange={setDiagramKeyword}
-        onDiagramPageChange={(page) => void loadDiagramList(page)}
-        onRevisionPageChange={(page) => void loadRevisionHistory(page)}
+        onDiagramKeywordChange={handleDiagramSearch}
+        onDiagramPageChange={handleDiagramPageChange}
+        onRevisionPageChange={handleRevisionPageChange}
         onOpenDiagram={handleOpenDiagram}
-        onDeleteDiagram={(diagramItem) => void handleDeleteDiagram(diagramItem)}
+        onDeleteDiagram={(diagramItem) => void handleDeleteDiagramWrapper(diagramItem)}
         onRestoreRevision={handleRestoreRevision}
       />
       {api && supportsAi ? (

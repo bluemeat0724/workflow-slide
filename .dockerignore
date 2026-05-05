@@ -1,0 +1,11 @@
+.git
+.DS_Store
+README.md
+dev_docs
+app/.env
+app/node_modules
+app/dist
+app/data
+app/.vite
+app/coverage
+app/npm-debug.log*

@@ -244,3 +244,13 @@ export type ExecuteWorkflowSessionResponse = {
     normalized: true
   }
 }
+
+export type ExportGifProfile = 'presentation-gif'
+export type ExportGifSize = 'standard' | 'hd'
+
+export type ExportGifRequest = {
+  diagram: Diagram
+  profile?: ExportGifProfile
+  size?: ExportGifSize
+  loop?: boolean
+}

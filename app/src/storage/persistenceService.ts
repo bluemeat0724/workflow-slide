@@ -367,7 +367,24 @@ export class PersistenceService {
     return response
   }
 
+  async clearDraft(signal?: AbortSignal): Promise<PersistenceLoadResult> {
+    this.clearLocalCache()
+
+    if (!this.api) {
+      this.setLatestVersion(null)
+      this.setSaveState('idle')
+      return {
+        source: 'empty',
+        diagram: this.createEmptyDiagram(),
+      }
+    }
+
+    return this.load(signal)
+  }
+
   clearLocalCache() {
+    this.discardPendingAutosave()
+
     if (!isStorageAvailable(this.storage)) {
       return
     }
