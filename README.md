@@ -1,14 +1,9 @@
 # 图舅 / UncleFlow
 
-> Uncle不老，但也不是小年轻了。
-
-> 这是一个“老登”风格的项目——比如GIF导出功能就是为贴进PPT而量身定做，支持手动微调节点位置、大小等操作, 以弥补当前AI画歪的问题。不过，这些功能可能等AI再发展几个月后就变成浮云了。
-
-> 可创建和编辑的workflow，最好配个大模型（没有也能用，但何不用别家项目）。
-
-> 使用流程：和Agent聊需求，出流程图，改吧改吧，导出成你想用的格式。
-
-你可以创建和编辑自己的工作流，最好搭配一个大模型（没有也能用，但既然没有，何不用别家项目呢？）。
+> Uncle不老，但也不是小年轻了。  
+> 这是一个“老登”风格的项目——比如GIF导出功能就是为贴进PPT而量身定做，支持手动微调节点位置、大小等操作, 以弥补当前AI画歪的问题。不过，这些功能可能等AI再发展几个月后就变成浮云了。  
+>  
+> 你可以创建和编辑自己的工作流，最好搭配一个大模型（没有也能用，但既然没有，何不用别家项目呢？）。
 
 使用流程：
 
@@ -52,11 +47,13 @@ COMPOSE_PROFILES=front-only docker compose up --build -d # 仅前端
 
 ## AI Agent 配置
 
-项目使用 OpenAI SDK，默认指向 DeepSeek API。在 `.env` 中配置：
+项目使用 OpenAI SDK，但请配置 DeepSeek 模型，因为使用了对话前缀续写特性。
+在 `.env` 中配置：
+
 
 ```bash
 OPENAI_API_KEY=sk-xxx
-DEFAULT_MODEL_NAME=deepseek-chat
+DEFAULT_MODEL_NAME=deepseek-v4-flash
 OPENAI_API_BASE=https://api.deepseek.com
 ```
 
