@@ -120,6 +120,7 @@ Choose the smallest relevant verification set for the change:
 
 If a change is not covered by automated tests, state that explicitly in the handoff.
 
+Do not read or remove docs in /dev_docs/legacy/
 
 
 
