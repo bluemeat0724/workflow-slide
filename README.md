@@ -94,6 +94,4 @@ npm run build
 - [技术架构](dev_docs/architecture.md)：目录结构、AI Agent 详细配置、GIF 导出
 - [开发与部署](dev_docs/development.md)：三种 npm 启动模式详解、Docker 部署、后端命令
 - [代码优化计划](dev_docs/code_optimization_plan.md)：当前代码热点、分阶段重构顺序、验收标准
-## Recent Notes
 
-- Edge routing now chooses target anchors by actual node boundary separation, so high-to-low connections prefer downward arrows when attaching to the top edge and still use left/right arrows when horizontal separation is dominant.
