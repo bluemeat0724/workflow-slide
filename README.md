@@ -17,12 +17,11 @@
 3. 你手动改吧改吧
 4. 导出成你想要的格式
 
-<table>
-<tr>
-<td width="50%"><img src="dev_docs/imgs/chat_requirements.png" alt="和Agent聊需求"></td>
-<td width="50%"><img src="dev_docs/imgs/generate_workflow.png" alt="生成流程图"></td>
-</tr>
-</table>
+> 聊需求
+![和Agent聊需求](dev_docs/imgs/chat_requirements.png) 
+> 生成流程图
+![生成流程图](dev_docs/imgs/generate_workflow.png) 
+
 
 ## 快速启动
 
