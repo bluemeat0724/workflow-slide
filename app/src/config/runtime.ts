@@ -6,6 +6,7 @@ export type RuntimeCapabilities = {
   supportsRevisionHistory: boolean
   supportsCreateRemoteDocument: boolean
   supportsAi: boolean
+  supportsImportExport: boolean
 }
 
 export type RuntimeConfig = {
@@ -18,6 +19,7 @@ type RuntimeEnv = {
   [key: string]: unknown
   VITE_STORAGE_MODE?: string
   VITE_API_BASE_URL?: string
+  VITE_SHOW_IMPORT_EXPORT?: string
 }
 
 export function resolveStorageModeFromEnv(env: RuntimeEnv): StorageMode {
@@ -49,7 +51,11 @@ export function resolveApiBaseUrlFromEnv(storageMode: StorageMode, env: RuntimeE
   return null
 }
 
-function deriveCapabilities(storageMode: StorageMode): RuntimeCapabilities {
+export function resolveImportExportFromEnv(env: RuntimeEnv): boolean {
+  return env.VITE_SHOW_IMPORT_EXPORT === 'true'
+}
+
+function deriveCapabilities(storageMode: StorageMode, env: RuntimeEnv): RuntimeCapabilities {
   const supportsDatabase = storageMode === 'local-db' || storageMode === 'remote'
 
   return {
@@ -58,6 +64,7 @@ function deriveCapabilities(storageMode: StorageMode): RuntimeCapabilities {
     supportsRevisionHistory: supportsDatabase,
     supportsCreateRemoteDocument: supportsDatabase,
     supportsAi: false,
+    supportsImportExport: resolveImportExportFromEnv(env),
   }
 }
 
@@ -70,7 +77,7 @@ export function getRuntimeConfig(): RuntimeConfig {
 
   const storageMode = resolveStorageModeFromEnv(import.meta.env)
   const apiBaseUrl = resolveApiBaseUrlFromEnv(storageMode, import.meta.env)
-  const capabilities = deriveCapabilities(storageMode)
+  const capabilities = deriveCapabilities(storageMode, import.meta.env)
 
   cachedConfig = { storageMode, apiBaseUrl, capabilities }
   return cachedConfig

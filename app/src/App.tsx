@@ -321,6 +321,7 @@ function App() {
         showDiagramList={capabilities.supportsDiagramLibrary}
         showRevisionActions={capabilities.supportsRevisionHistory && Boolean(REMOTE_DIAGRAM_ID && isPersistenceReady)}
         showExportGif={Boolean(api)}
+        showImportExport={capabilities.supportsImportExport}
         isCreatingRemote={isCreatingRemote}
         isExportingGif={isExportingGif}
         onCreateNewDiagram={handleCreateNewDiagram}

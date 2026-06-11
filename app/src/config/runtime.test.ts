@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveApiBaseUrlFromEnv, resolveStorageModeFromEnv } from './runtime'
+import { resolveApiBaseUrlFromEnv, resolveImportExportFromEnv, resolveStorageModeFromEnv } from './runtime'
 
 describe('runtime config helpers', () => {
   it('ignores VITE_API_BASE_URL in local-only mode', () => {
@@ -18,5 +18,14 @@ describe('runtime config helpers', () => {
 
   it('falls back to local-only for invalid modes', () => {
     expect(resolveStorageModeFromEnv({ VITE_STORAGE_MODE: 'unexpected' })).toBe('local-only')
+  })
+
+  it('defaults import/export to hidden', () => {
+    expect(resolveImportExportFromEnv({})).toBe(false)
+  })
+
+  it('enables import/export when env var is "true"', () => {
+    expect(resolveImportExportFromEnv({ VITE_SHOW_IMPORT_EXPORT: 'true' })).toBe(true)
+    expect(resolveImportExportFromEnv({ VITE_SHOW_IMPORT_EXPORT: 'false' })).toBe(false)
   })
 })
