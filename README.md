@@ -27,12 +27,12 @@ cp .env.example .env
 cd app
 ```
 
-**npm 启动（任选其一）：**
+数据库类型只由根目录 `.env` 中的 `STORAGE_DRIVER=sqlite|postgres` 决定。
 
 ```bash
-npm run dev              # local-db: 本地 SQLite 后端 + 前端（推荐默认）
-npm run dev:local-only   # local-only: 纯前端，不需要后端
-npm run dev:remote       # remote: 连接远端 API
+npm run db:migrate       # 按 STORAGE_DRIVER 执行迁移
+npm run dev              # 启动后端 + Vite
+npm run frontend         # 仅启动 Vite，模式由 VITE_* 环境变量决定
 ```
 
 **Docker 启动：**
@@ -64,16 +64,11 @@ OPENAI_API_BASE=https://api.deepseek.com
 ```bash
 make help              # 查看所有可用目标
 make install           # 安装依赖
-make dev               # 启动全栈开发 (SQLite + Vite)
-make dev-local-only    # 启动纯前端 (local-only)
-make dev-remote        # 启动前端 (remote API)
-make dev-local-db      # 同 make dev
+make dev               # 启动后端 + Vite
+make frontend          # 仅启动 Vite
 make server            # 启动后端
 make server-dev        # 启动后端 (watch 模式)
-make db-migrate        # PostgreSQL 迁移
-make db-migrate-sqlite # SQLite 迁移
-make setup             # install + PostgreSQL 迁移
-make start-local-db    # SQLite 迁移 + 启动本地开发服务
+make migrate           # 按 STORAGE_DRIVER 执行迁移
 make build             # 类型检查并构建
 make lint              # 运行 ESLint
 make test              # 运行测试
@@ -92,6 +87,5 @@ npm run build
 ## 更多文档
 
 - [技术架构](dev_docs/architecture.md)：目录结构、AI Agent 详细配置、GIF 导出
-- [开发与部署](dev_docs/development.md)：三种 npm 启动模式详解、Docker 部署、后端命令
+- [开发与部署](dev_docs/development.md)：环境配置、开发命令、Docker 部署
 - [代码优化计划](dev_docs/code_optimization_plan.md)：当前代码热点、分阶段重构顺序、验收标准
-

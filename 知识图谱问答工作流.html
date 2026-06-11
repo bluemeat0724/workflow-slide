@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>知识图谱问答工作流</title>
+<style>
+
+:root {
+  --bg-primary: #ffffff;
+  --board-background: linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.74));
+  --lane-background: linear-gradient(90deg, rgba(125, 44, 255, 0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%);
+  --text-primary: #0b0b0f;
+  --text-muted: #555563;
+  --accent: #7d2cff;
+  --accent-deep: #5b16c7;
+  --accent-soft: rgba(125, 44, 255, 0.08);
+  --line-soft: rgba(11, 11, 15, 0.28);
+}
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; }
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(125, 44, 255, 0.11), transparent 26%),
+    radial-gradient(circle at 84% 74%, rgba(125, 44, 255, 0.08), transparent 24%),
+    linear-gradient(130deg, #ffffff, rgba(255,255,255,.94) 56%, rgba(255,255,255,.98));
+  color: var(--text-primary);
+  font-family: "Avenir Next Condensed", "DIN Condensed", "Microsoft YaHei", sans-serif;
+}
+.slide {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+.slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(11,11,15,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11,11,15,.07) 1px, transparent 1px),
+    radial-gradient(circle at 25% 80%, rgba(11,11,15,.03), transparent 35%),
+    repeating-linear-gradient(115deg, transparent 0, transparent 3.7rem, rgba(125, 44, 255, 0.025) 3.7rem, rgba(125, 44, 255, 0.025) 3.82rem);
+  background-size: 2rem 2rem, 2rem 2rem, auto, auto;
+  opacity: .92;
+}
+.board {
+  position: absolute;
+  inset: 20px;
+  border-radius: 32px;
+  overflow: hidden;
+  border: 1px solid rgba(11,11,15,.08);
+  box-shadow: 0 32px 56px rgba(11,11,15,.1);
+  background: var(--board-background);
+}
+.board::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(125, 44, 255, 0.045), transparent 18%),
+    linear-gradient(90deg, transparent 0%, rgba(125, 44, 255, 0.028) 44%, rgba(125, 44, 255, 0.07) 52%, rgba(125, 44, 255, 0.028) 60%, transparent 100%);
+}
+.lane {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  border-radius: 24px;
+  border: 1px solid rgba(125, 44, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+}
+.lane__label {
+  position: absolute;
+  left: 18px;
+  top: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.lane__title {
+  font-family: "Iowan Old Style", "Baskerville", "Songti SC", Georgia, serif;
+  font-size: 1.14rem;
+  color: var(--accent-deep);
+}
+.lane__subtitle {
+  color: var(--text-muted);
+  font-family: "Cascadia Mono", "Courier New", monospace;
+  font-size: .7rem;
+}
+.edge-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.edge-path {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 14 9;
+  stroke-dashoffset: var(--edge-dash-offset, 0);
+}
+.edge-path--theme {
+  stroke: rgba(125, 44, 255, 0.58);
+  filter: drop-shadow(0 0 6px rgba(125, 44, 255, 0.18));
+}
+.edge-path--soft {
+  stroke: var(--line-soft);
+  stroke-width: 2.4;
+  stroke-dasharray: 10 7;
+}
+.node-card {
+  position: absolute;
+  z-index: 2;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: rgba(255,255,255,.88);
+  border: 1px solid rgba(11,11,15,.09);
+  box-shadow: 0 22px 38px rgba(11,11,15,.08);
+}
+.node-card::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(125, 44, 255, 0.11);
+}
+.node-card h3 {
+  margin: 0 0 6px;
+  font-family: "Iowan Old Style", "Baskerville", "Songti SC", Georgia, serif;
+  font-size: 1.04rem;
+  line-height: 1.04;
+}
+.node-card p {
+  margin: 0;
+  color: rgba(11,11,15,.76);
+  font-size: .76rem;
+  line-height: 1.22;
+}
+.node-card__tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: "Cascadia Mono", "Courier New", monospace;
+  font-size: .62rem;
+  background: rgba(125, 44, 255, 0.07);
+  color: var(--accent-deep);
+  border: 1px solid rgba(125, 44, 255, 0.14);
+}
+.node-card--agent {
+  background: linear-gradient(135deg, rgba(125, 44, 255, 0.08), rgba(255,255,255,.9));
+  border-color: rgba(125, 44, 255, 0.16);
+}
+.node-card--shared {
+  background: linear-gradient(135deg, rgba(125, 44, 255, 0.11), rgba(255,255,255,.9) 55%);
+  border-color: rgba(125, 44, 255, 0.2);
+  box-shadow: 0 22px 38px rgba(11,11,15,.08), 0 0 0 8px rgba(125, 44, 255, 0.05);
+}
+.node-card--output {
+  background: linear-gradient(135deg, rgba(11,11,15,.03), rgba(255,255,255,.92));
+}
+
+</style>
+</head>
+<body>
+  <section class="slide">
+    <div class="board">
+      
+        <section class="lane" style="top:0%;height:50%;background:linear-gradient(90deg, rgba(125, 44, 255, 0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%);">
+          <div class="lane__label">
+            <span class="lane__title">数据处理</span>
+            
+          </div>
+        </section>
+        <section class="lane" style="top:50%;height:50%;background:linear-gradient(90deg, rgba(125, 44, 255, 0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%);">
+          <div class="lane__label">
+            <span class="lane__title">问答</span>
+            
+          </div>
+        </section>
+      <svg class="edge-layer" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <marker id="arrow-theme" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L8,3 z" fill="#7d2cff"></path>
+          </marker>
+          <marker id="arrow-soft" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(11, 11, 15, 0.28)"></path>
+          </marker>
+        </defs>
+        <path d="M 304 202.5 C 368 202.5, 399.99999999999994 144, 463.99999999999994 144" class="edge-path edge-path--soft" data-edge-id="edge-1" data-animation-step="0" marker-end="url(#arrow-soft)" /><path d="M 720 144 C 784 144, 816.0000000000001 202.5, 880.0000000000001 202.5" class="edge-path edge-path--soft" data-edge-id="edge-2" data-animation-step="1" marker-end="url(#arrow-soft)" /><path d="M 304 355.5 C 368 355.5, 399.99999999999994 279, 463.99999999999994 279" class="edge-path edge-path--soft" data-edge-id="edge-3" data-animation-step="0" marker-end="url(#arrow-soft)" /><path d="M 304 355.5 C 368 355.5, 399.99999999999994 414, 463.99999999999994 414" class="edge-path edge-path--soft" data-edge-id="edge-4" data-animation-step="0" marker-end="url(#arrow-soft)" /><path d="M 720 279 C 784 279, 816.0000000000001 355.5, 880.0000000000001 355.5" class="edge-path edge-path--theme" data-edge-id="edge-5" data-animation-step="1" marker-end="url(#arrow-theme)" /><path d="M 720 414 C 784 414, 816.0000000000001 355.5, 880.0000000000001 355.5" class="edge-path edge-path--theme" data-edge-id="edge-6" data-animation-step="1" marker-end="url(#arrow-theme)" /><path d="M 1136 355.5 C 1200 355.5, 1232 414, 1296 414" class="edge-path edge-path--soft" data-edge-id="edge-7" data-animation-step="2" marker-end="url(#arrow-soft)" /><path d="M 1424 477 C 1424 519, 1424 570, 1424 612" class="edge-path edge-path--soft" data-edge-id="edge-8" data-animation-step="3" marker-end="url(#arrow-soft)" />
+      </svg>
+      
+        <article class="node-card" style="left:3%;top:15.5%;width:16%;min-height:14%;">
+          <h3>文档输入</h3>
+          <p>接收原始文档作为输入</p>
+          <span class="node-card__tag">开始</span>
+        </article>
+        <article class="node-card" style="left:29%;top:9%;width:16%;min-height:14%;">
+          <h3>文档预处理</h3>
+          <p>对文档进行分割和清洗</p>
+          <span class="node-card__tag">预处理</span>
+        </article>
+        <article class="node-card" style="left:55%;top:15.5%;width:16%;min-height:14%;">
+          <h3>图索引构建</h3>
+          <p>实体抽取+关系抽取，存储到知识图谱</p>
+          <span class="node-card__tag">索引</span>
+        </article>
+        <article class="node-card" style="left:3%;top:32.5%;width:16%;min-height:14%;">
+          <h3>用户查询输入</h3>
+          <p>接收用户自然语言查询</p>
+          <span class="node-card__tag">查询</span>
+        </article>
+        <article class="node-card" style="left:29%;top:24%;width:16%;min-height:14%;">
+          <h3>图检索</h3>
+          <p>从知识图谱中检索相关内容</p>
+          <span class="node-card__tag">检索</span>
+        </article>
+        <article class="node-card" style="left:29%;top:39%;width:16%;min-height:14%;">
+          <h3>向量检索</h3>
+          <p>使用向量相似度检索相关内容</p>
+          <span class="node-card__tag">检索</span>
+        </article>
+        <article class="node-card" style="left:55%;top:32.5%;width:16%;min-height:14%;">
+          <h3>融合检索结果</h3>
+          <p>将图检索和向量检索的结果进行合并</p>
+          <span class="node-card__tag">融合</span>
+        </article>
+        <article class="node-card node-card--agent" style="left:81%;top:39%;width:16%;min-height:14%;">
+          <h3>生成回答</h3>
+          <p>调用LLM基于融合结果生成最终回答</p>
+          <span class="node-card__tag">LLM</span>
+        </article>
+        <article class="node-card node-card--output" style="left:81%;top:68%;width:16%;min-height:14%;">
+          <h3>输出最终回答</h3>
+          <p>输出生成的回答</p>
+          <span class="node-card__tag">结束</span>
+        </article>
+    </div>
+  </section>
+  <script>
+    (() => {
+      const mode = "all-active"
+      const totalSteps = 4
+      const stepDurationMs = 1250
+      const activeDurationMs = 900
+      const totalDurationMs = 2800
+      const dashTotalOffset = 44
+      const edgeElements = Array.from(document.querySelectorAll('.edge-path'))
+      const startedAt = performance.now()
+
+      const getEdgeOffset = (step, elapsedMs) => {
+        if (mode === 'all-active') {
+          const cycleElapsed = ((elapsedMs % totalDurationMs) + totalDurationMs) % totalDurationMs
+          return -dashTotalOffset * (cycleElapsed / totalDurationMs)
+        }
+
+        if (totalSteps === 0) return 0
+
+        const cycleElapsed = ((elapsedMs % totalDurationMs) + totalDurationMs) % totalDurationMs
+        const activeStart = step * stepDurationMs
+        const activeEnd = activeStart + activeDurationMs
+
+        if (cycleElapsed <= activeStart) return 0
+        if (cycleElapsed >= activeEnd) return -dashTotalOffset
+
+        const progress = (cycleElapsed - activeStart) / activeDurationMs
+        return -dashTotalOffset * progress
+      }
+
+      const tick = (now) => {
+        const elapsedMs = now - startedAt
+        edgeElements.forEach((edgeElement) => {
+          const step = Number(edgeElement.dataset.animationStep || '0')
+          edgeElement.style.setProperty('--edge-dash-offset', String(getEdgeOffset(step, elapsedMs)))
+        })
+
+        window.requestAnimationFrame(tick)
+      }
+
+      window.requestAnimationFrame(tick)
+    })()
+  </script>
+</body>
+</html>

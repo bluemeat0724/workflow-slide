@@ -28,7 +28,11 @@ export function getStorageDriver() {
     return driver
   }
 
-  return 'postgres'
+  if (!driver) {
+    throw new Error('Missing required environment variable: STORAGE_DRIVER')
+  }
+
+  throw new Error('Invalid STORAGE_DRIVER. Expected "sqlite" or "postgres".')
 }
 
 export function getDatabaseUrl() {

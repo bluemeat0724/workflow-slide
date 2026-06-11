@@ -165,6 +165,45 @@
   flex: 0 0 auto;
 }
 
+.workflow-agent-window__prompt-suggestions {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-agent-window__prompt-suggestions-label {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--theme-text-muted, #555563);
+}
+
+.workflow-agent-window__prompt-suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workflow-agent-window__prompt-suggestion {
+  padding: 10px 14px;
+  border: 1px solid var(--theme-accent-18, rgba(125, 44, 255, 0.18));
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--theme-accent-08, rgba(125, 44, 255, 0.08)), rgba(255, 255, 255, 0.92));
+  color: var(--theme-text-primary, #0b0b0f);
+  text-align: left;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.workflow-agent-window__prompt-suggestion:hover {
+  transform: translateY(-1px);
+  border-color: var(--theme-accent-28, rgba(125, 44, 255, 0.28));
+  box-shadow: 0 10px 24px var(--theme-accent-12, rgba(125, 44, 255, 0.12));
+}
+
+.workflow-agent-window__prompt-suggestion--reply {
+  background: rgba(255, 255, 255, 0.94);
+}
+
 .workflow-agent-window__composer textarea {
   width: 100%;
   resize: none;

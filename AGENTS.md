@@ -40,7 +40,7 @@ The top-level `README.md` is minimal, so use this file as the working guide for 
 - `app/server/ai/`: workflow agent — conversation orchestrator, JSON sub-agent, diagram normalizer, layout engine, session store, theme presets, prompt templates, OpenAI client wrapper, error taxonomy, JSON fence parser, diagnostics
 - `app/server/render/`: GIF export — browser capture (Playwright), GIF encoder, export templates, presentation profiles, edge animation planning, legacy canvas renderer
 - `app/server/repository/`: PostgreSQL and SQLite diagram repository implementations with shared helpers
-- `app/scripts/`: dev startup orchestrator (`dev-local-db.mjs`), Docker entrypoint
+- `app/scripts/`: dev startup orchestrator (`dev.mjs`), Docker entrypoint
 - `dev_docs/`: design notes, API contracts, agent plans, code optimization plan, legacy plans, and [development guide](file:///Users/g-air/projects/workflow-slide/dev_docs/development.md)
 - `Makefile` (root): convenience shortcuts for all npm commands
 
@@ -122,8 +122,7 @@ Choose the smallest relevant verification set for the change:
 If a change is not covered by automated tests, state that explicitly in the handoff.
 
 Do not read or remove docs in /dev_docs/legacy/
-
-
+项目优化不需要考虑对旧功能的兼容。
 
 
 

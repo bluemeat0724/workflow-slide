@@ -277,6 +277,14 @@ export function useWorkflowAgent({
     void handleOpenAgent()
   }, [handleOpenAgent])
 
+  const resetAgentSession = useCallback(() => {
+    agentSessionAbortRef.current?.abort()
+    agentMessageAbortRef.current?.abort()
+    agentExecuteAbortRef.current?.abort()
+    agentSessionPromiseRef.current = null
+    dispatch({ type: 'reset-session' })
+  }, [])
+
   const dispose = useCallback(() => {
     agentSessionAbortRef.current?.abort()
     agentMessageAbortRef.current?.abort()
@@ -304,6 +312,7 @@ export function useWorkflowAgent({
     handleAgentLauncherClick,
     handleSendAgentMessage,
     handleExecuteAgentProposal,
+    resetAgentSession,
     dispose,
   }
 }

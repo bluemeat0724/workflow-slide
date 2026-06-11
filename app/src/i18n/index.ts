@@ -27,6 +27,10 @@ export type Messages = {
     close: string
     inputPlaceholder: string
     inputHint: string
+    promptSuggestionsLabel: string
+    promptSuggestions: readonly string[]
+    replySuggestionsLabel: string
+    replySuggestions: readonly string[]
     send: string
     sending: string
     sendHint: string
@@ -118,9 +122,13 @@ export type Messages = {
     edges: string
     addLane: string
     addNode: string
+    collapse: string
+    expand: string
   }
   inspector: {
     title: string
+    collapse: string
+    expand: string
     canvas: string
     theme: string
     lane: string
@@ -136,6 +144,8 @@ export type Messages = {
     fromField: string
     toField: string
     laneCount: string
+    laneField: string
+    noLane: string
     deleteLane: string
     deleteNode: string
     deleteEdge: string
@@ -155,6 +165,8 @@ export type Messages = {
   }
   themePresets: Record<string, string>
   canvas: {
+    enterFullscreen: string
+    exitFullscreen: string
     inlineTitlePlaceholder: string
     inlineDescriptionPlaceholder: string
     inlineTagPlaceholder: string

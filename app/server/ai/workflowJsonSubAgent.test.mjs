@@ -83,13 +83,17 @@ describe('createWorkflowJsonSubAgent', () => {
         meta: { title: 'Existing Workflow', locale: 'zh-CN', version: '0.1.0' },
         theme: { name: 'Violet', accent: '#7d2cff' },
         lanes: [{ id: 'lane-1', title: 'Main', subtitle: '', order: 0 }],
-        nodes: [{ id: 'node-1', laneId: 'lane-1', type: 'default', title: 'Start', description: '', tag: '', x: 0, y: 0, width: 18, height: 16 }],
+        nodes: [{ id: 'node-1', type: 'default', title: 'Start', description: '', tag: '', x: 0, y: 0, width: 18, height: 16 }],
         edges: [],
       },
     })
 
     expect(recordedRequest.messages[1].content).toContain('Existing editor diagram reference JSON:')
     expect(recordedRequest.messages[1].content).toContain('"title":"Existing Workflow"')
+    expect(recordedRequest.messages[0].content).toContain('Use exactly one lane by default.')
+    expect(recordedRequest.messages[0].content).toContain('Do not create lanes for sequential processing stages')
+    expect(recordedRequest.messages[0].content).toContain('every node must provide a valid laneKey')
+    expect(recordedRequest.messages[0].content).toContain('equal-height horizontal sections')
   })
 
   it('throws AI_RESPONSE_INVALID for malformed JSON', async () => {

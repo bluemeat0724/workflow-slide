@@ -1,7 +1,7 @@
 import { createCanvas } from '@napi-rs/canvas'
 import gifenc from 'gifenc'
 import { BOARD_WIDTH, BOARD_HEIGHT } from './presentationProfile.mjs'
-import { getLaneBounds, getNodeSidePoint, percentXToCanvas, percentYToCanvas, withAlpha } from './utils.mjs'
+import { getNodeSidePoint, percentXToCanvas, percentYToCanvas, withAlpha } from './utils.mjs'
 
 const { GIFEncoder, quantize, applyPalette } = gifenc
 
@@ -243,9 +243,7 @@ function renderNodes(ctx, diagram) {
   const BOARD_PADDING = inset + 14
   nodes.forEach((node) => {
     const cx = BOARD_PADDING + (node.x / 100) * (BOARD_WIDTH - BOARD_PADDING * 2)
-    const bounds = getLaneBounds(diagram.lanes, node.laneId)
-    const laneTop = inset + (bounds.top / 100) * (BOARD_HEIGHT - inset * 2)
-    const ny = laneTop + (node.y - bounds.top) / bounds.height * ((bounds.height / 100) * (BOARD_HEIGHT - inset * 2))
+    const ny = inset + (node.y / 100) * (BOARD_HEIGHT - inset * 2)
     const nw = (node.width / 100) * (BOARD_WIDTH - BOARD_PADDING * 2)
     const minHeight = 80
     const nh = Math.max(minHeight, (node.height / 100) * (BOARD_HEIGHT - inset * 2))

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { getAiConfig, resolveWorkflowJsonBaseUrl } from './config.mjs'
+import { getAiConfig, getStorageDriver, resolveWorkflowJsonBaseUrl } from './config.mjs'
 
 const ORIGINAL_ENV = { ...process.env }
 
@@ -46,5 +46,27 @@ describe('getAiConfig', () => {
     delete process.env.WORKFLOW_JSON_BASE_URL
 
     expect(getAiConfig().workflowJsonBaseUrl).toBe('https://api.deepseek.com/beta')
+  })
+})
+
+describe('getStorageDriver', () => {
+  it('accepts sqlite', () => {
+    process.env.STORAGE_DRIVER = 'sqlite'
+    expect(getStorageDriver()).toBe('sqlite')
+  })
+
+  it('accepts postgres', () => {
+    process.env.STORAGE_DRIVER = 'postgres'
+    expect(getStorageDriver()).toBe('postgres')
+  })
+
+  it('rejects a missing storage driver', () => {
+    delete process.env.STORAGE_DRIVER
+    expect(() => getStorageDriver()).toThrow('Missing required environment variable: STORAGE_DRIVER')
+  })
+
+  it('rejects an invalid storage driver', () => {
+    process.env.STORAGE_DRIVER = 'mysql'
+    expect(() => getStorageDriver()).toThrow('Invalid STORAGE_DRIVER')
   })
 })

@@ -16,12 +16,11 @@ export function assertDiagramPayload(value) {
     throw createValidationError('diagram.lanes', 'At least one lane is required.')
   }
 
+  const nodeIds = new Set(nodes.map((node) => node.id))
   const laneIds = new Set(lanes.map((lane) => lane.id))
-  const normalizedNodes = nodes.map((node) => ({
-    ...node,
-    laneId: laneIds.has(node.laneId) ? node.laneId : lanes[0].id,
-  }))
-  const nodeIds = new Set(normalizedNodes.map((node) => node.id))
+  if (nodes.some((node) => node.laneId !== null && !laneIds.has(node.laneId))) {
+    throw createValidationError('diagram.nodes[].laneId', 'diagram.nodes[].laneId must reference an existing lane.')
+  }
   const normalizedEdges = edges.filter(
     (edge) => edge.fromNodeId !== edge.toNodeId && nodeIds.has(edge.fromNodeId) && nodeIds.has(edge.toNodeId),
   )
@@ -35,7 +34,7 @@ export function assertDiagramPayload(value) {
     },
     theme,
     lanes: [...lanes].sort((left, right) => left.order - right.order),
-    nodes: normalizedNodes,
+    nodes,
     edges: normalizedEdges,
   }
 }
@@ -145,7 +144,7 @@ function assertNode(value) {
 
   return {
     id: assertString(node.id, 'diagram.nodes[].id'),
-    laneId: assertString(node.laneId, 'diagram.nodes[].laneId'),
+    laneId: assertNullableString(node.laneId, 'diagram.nodes[].laneId'),
     type: assertNodeType(node.type),
     title: assertString(node.title, 'diagram.nodes[].title'),
     description: assertString(node.description, 'diagram.nodes[].description'),
@@ -155,6 +154,13 @@ function assertNode(value) {
     width: assertNumber(node.width, 'diagram.nodes[].width'),
     height: assertNumber(node.height, 'diagram.nodes[].height'),
   }
+}
+
+function assertNullableString(value, field) {
+  if (value === null) {
+    return null
+  }
+  return assertString(value, field)
 }
 
 function assertEdge(value) {

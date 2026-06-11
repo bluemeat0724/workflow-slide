@@ -26,29 +26,34 @@ export function getLaneBounds(lanes: Lane[], laneId: string) {
   }
 }
 
+export function getLaneIdAtPoint(lanes: Lane[], x: number, y: number): string | null {
+  if (x < 0 || x > 100 || y < 0 || y > 100) {
+    return null
+  }
+
+  const ordered = [...lanes].sort((a, b) => a.order - b.order)
+  const laneHeight = 100 / Math.max(ordered.length, 1)
+  const index = Math.min(Math.floor(y / laneHeight), ordered.length - 1)
+  return ordered[index]?.id ?? null
+}
+
+export function getNodeLaneId(lanes: Lane[], node: Pick<Node, 'x' | 'y' | 'width' | 'height'>): string | null {
+  return getLaneIdAtPoint(lanes, node.x + node.width / 2, node.y + node.height / 2)
+}
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-export function getLaneByY(lanes: Lane[], centerY: number): Lane {
-  const ordered = [...lanes].sort((a, b) => a.order - b.order)
-  const laneHeight = 100 / Math.max(ordered.length, 1)
-  const index = clamp(Math.floor(centerY / laneHeight), 0, ordered.length - 1)
-  return ordered[index]
-}
-
-export function constrainNodeToLane(node: Node, lanes: Lane[], laneId: string) {
-  const bounds = getLaneBounds(lanes, laneId)
-  const width = clamp(node.width, NODE_MIN_WIDTH, Math.min(NODE_MAX_WIDTH, 100 - HORIZONTAL_PADDING - node.x))
-  const maxHeight = Math.max(NODE_MIN_HEIGHT, bounds.height - VERTICAL_PADDING * 2)
+export function constrainNodeToCanvas(node: Node) {
+  const width = clamp(node.width, NODE_MIN_WIDTH, NODE_MAX_WIDTH)
+  const maxHeight = Math.max(NODE_MIN_HEIGHT, 100 - VERTICAL_PADDING * 2)
   const height = clamp(node.height, NODE_MIN_HEIGHT, maxHeight)
   const x = clamp(node.x, HORIZONTAL_PADDING, 100 - width - HORIZONTAL_PADDING)
-  const maxY = Math.max(bounds.top + VERTICAL_PADDING, bounds.top + bounds.height - height - VERTICAL_PADDING)
-  const y = clamp(node.y, bounds.top + VERTICAL_PADDING, maxY)
+  const y = clamp(node.y, VERTICAL_PADDING, 100 - height - VERTICAL_PADDING)
 
   return {
     ...node,
-    laneId,
     x,
     y,
     width,

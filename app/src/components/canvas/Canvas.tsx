@@ -22,7 +22,7 @@ type CanvasProps = {
   onSelect: (selection: Selection) => void
   onNodeSelect: (nodeId: string, append: boolean) => void
   onSetMultiSelection: (nodeIds: string[]) => void
-  onUpdateNodePosition: (nodeId: string, x: number, y: number, laneId: string) => void
+  onUpdateNodePosition: (nodeId: string, x: number, y: number) => void
   onUpdateNodeWidth: (nodeId: string, width: number) => void
   onUpdateNodeHeight: (nodeId: string, height: number) => void
   onUpdateNodeContent: (nodeId: string, updates: { title?: string; description?: string; tag?: string }) => void
@@ -38,12 +38,43 @@ type ContextMenuState =
   | null
 
 const RESIZE_DIRECTIONS: ResizeDirection[] = ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw']
+const FULLSCREEN_ICON_STROKE_WIDTH = 1.8
 
 function getNodeClassName(type: Diagram['nodes'][number]['type']) {
   if (type === 'agent') return 'node-card node-card--agent'
   if (type === 'shared') return 'node-card node-card--shared'
   if (type === 'output') return 'node-card node-card--output'
   return 'node-card'
+}
+
+function FullscreenIcon({ isFullscreen }: { isFullscreen: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={FULLSCREEN_ICON_STROKE_WIDTH} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {isFullscreen ? (
+        <>
+          <path d="M7 3.5H3.5V7" />
+          <path d="M13 3.5h3.5V7" />
+          <path d="M7 16.5H3.5V13" />
+          <path d="M13 16.5h3.5V13" />
+          <path d="M7.5 7.5 3.5 3.5" />
+          <path d="M12.5 7.5 16.5 3.5" />
+          <path d="M7.5 12.5 3.5 16.5" />
+          <path d="M12.5 12.5 16.5 16.5" />
+        </>
+      ) : (
+        <>
+          <path d="M7 3.5H3.5V7" />
+          <path d="M13 3.5h3.5V7" />
+          <path d="M7 16.5H3.5V13" />
+          <path d="M13 16.5h3.5V13" />
+          <path d="M3.5 7 8 2.5" />
+          <path d="M16.5 7 12 2.5" />
+          <path d="M3.5 13 8 17.5" />
+          <path d="M16.5 13 12 17.5" />
+        </>
+      )}
+    </svg>
+  )
 }
 
 export function Canvas({
@@ -63,11 +94,13 @@ export function Canvas({
   onDeleteNode,
   onDeleteEdge,
 }: CanvasProps) {
+  const canvasPanelRef = useRef<HTMLDivElement | null>(null)
   const boardRef = useRef<HTMLDivElement | null>(null)
   const nodeRefs = useRef(new Map<string, HTMLElement>())
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [animationElapsed, setAnimationElapsed] = useState(0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const resolvedEditingNodeId = editingNodeId && diagram.nodes.some((node) => node.id === editingNodeId) ? editingNodeId : null
   const edgeAnimationMode = resolveEdgeAnimationMode(diagram.meta.edgeAnimationMode)
   const edgeAnimationPlan = useMemo(() => buildEdgeAnimationPlan(diagram), [diagram])
@@ -81,7 +114,6 @@ export function Canvas({
     startMarquee,
   } = useCanvasInteraction({
     boardRef,
-    lanes: diagram.lanes,
     nodes: diagram.nodes,
     editingNodeId: resolvedEditingNodeId,
     onUpdateNodePosition,
@@ -91,6 +123,15 @@ export function Canvas({
     onSetMultiSelection,
     onSelect,
   })
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement?.classList.contains('app-shell') ?? false)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
 
   useEffect(() => {
     if (diagram.edges.length === 0) {
@@ -272,6 +313,7 @@ export function Canvas({
 
   return (
     <div
+      ref={canvasPanelRef}
       className="canvas-panel"
       onClick={() => {
         onSelect({ kind: 'canvas' })
@@ -279,12 +321,30 @@ export function Canvas({
         setContextMenu(null)
       }}
     >
-      <div
-        ref={boardRef}
-        className="board"
-        style={{ background: diagram.theme.boardBackground } as CSSProperties}
-        onPointerDownCapture={canvasStartMarquee}
+      <button
+        type="button"
+        className="canvas-panel__fullscreen-button"
+        aria-pressed={isFullscreen}
+        aria-label={isFullscreen ? messages.canvas.exitFullscreen : messages.canvas.enterFullscreen}
+        title={isFullscreen ? messages.canvas.exitFullscreen : messages.canvas.enterFullscreen}
+        onClick={(event) => {
+          event.stopPropagation()
+          if (isFullscreen) {
+            void document.exitFullscreen()
+          } else {
+            void canvasPanelRef.current?.closest<HTMLElement>('.app-shell')?.requestFullscreen()
+          }
+        }}
       >
+        <FullscreenIcon isFullscreen={isFullscreen} />
+      </button>
+      <div className="board-shell">
+        <div
+          ref={boardRef}
+          className="board"
+          style={{ background: diagram.theme.boardBackground } as CSSProperties}
+          onPointerDownCapture={canvasStartMarquee}
+        >
             {diagram.lanes.map((lane) => {
               const bounds = getLaneBounds(diagram.lanes, lane.id)
               const isSelected = selection.kind === 'lane' && selection.id === lane.id
@@ -418,7 +478,8 @@ export function Canvas({
                 </article>
               )
             })}
-        {renderContextMenu()}
+          {renderContextMenu()}
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createWorkflowConversationAgent } from './workflowConversationAgent.mjs'
-import { buildWorkflowConversationMessages } from './workflowConversationPrompt.mjs'
+import { buildWorkflowConversationMessages, buildWorkflowConversationSystemPrompt } from './workflowConversationPrompt.mjs'
 
 function createClientWithMessage(message, finishReason = 'stop') {
   return {
@@ -24,6 +24,13 @@ function createClientWithContent(content) {
 }
 
 describe('createWorkflowConversationAgent', () => {
+  it('defaults proposals to one lane and reserves multiple lanes for stable boundaries', () => {
+    const prompt = buildWorkflowConversationSystemPrompt()
+
+    expect(prompt).toContain('Default to one lane.')
+    expect(prompt).toContain('Do not turn sequential phases or ordinary processing stages into lanes.')
+  })
+
   it('appends the fenced-json reminder to user messages only in the internal prompt', () => {
     const messages = buildWorkflowConversationMessages({
       state: 'collecting_requirements',

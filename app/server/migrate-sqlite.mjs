@@ -3,18 +3,6 @@ import { getServerConfig, getSqliteConfig } from './config.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const { defaultUserEmail, defaultUserId, defaultUserName } = getServerConfig()
-const { filePath } = getSqliteConfig()
-
-const dataDir = path.dirname(filePath)
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true })
-}
-
-const db = new Database(filePath)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
-
 const statements = [
   `
     create table if not exists users (
@@ -82,18 +70,31 @@ const statements = [
   `,
 ]
 
-try {
-  for (const statement of statements) {
-    db.exec(statement)
+export async function migrate() {
+  const { defaultUserEmail, defaultUserId, defaultUserName } = getServerConfig()
+  const { filePath } = getSqliteConfig()
+  const dataDir = path.dirname(filePath)
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true })
   }
 
-  db.prepare(`
-    insert or replace into users (id, email, name)
-    values (?, ?, ?)
-  `).run(defaultUserId, defaultUserEmail, defaultUserName)
+  const db = new Database(filePath)
+  db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
 
-  console.log('SQLite database migration completed.')
-  console.log(`Database file: ${filePath}`)
-} finally {
-  db.close()
+  try {
+    for (const statement of statements) {
+      db.exec(statement)
+    }
+
+    db.prepare(`
+      insert or replace into users (id, email, name)
+      values (?, ?, ?)
+    `).run(defaultUserId, defaultUserEmail, defaultUserName)
+
+    console.log('SQLite database migration completed.')
+    console.log(`Database file: ${filePath}`)
+  } finally {
+    db.close()
+  }
 }

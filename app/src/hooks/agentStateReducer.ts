@@ -18,6 +18,7 @@ export type AgentState = {
 export type AgentAction =
   | { type: 'open-agent' }
   | { type: 'close-agent' }
+  | { type: 'reset-session' }
   | { type: 'set-session'; sessionId: string; state: WorkflowAgentState; welcomeMessage: string }
   | { type: 'set-input'; input: string }
   | { type: 'start-loading' }
@@ -36,6 +37,19 @@ export function agentStateReducer(state: AgentState, action: AgentAction): Agent
       return { ...state, isOpen: true }
     case 'close-agent':
       return { ...state, isOpen: false }
+    case 'reset-session':
+      return {
+        ...state,
+        isOpen: false,
+        sessionId: null,
+        messages: [],
+        state: 'collecting_requirements',
+        proposal: null,
+        input: '',
+        isLoading: false,
+        isExecuting: false,
+        error: '',
+      }
     case 'set-session':
       return {
         ...state,

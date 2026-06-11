@@ -1,29 +1,19 @@
 APP_DIR := app
 
-.PHONY: help install dev dev-local-only dev-remote dev-local-db \
-        server server-dev db-migrate db-migrate-sqlite \
-        build lint test preview \
-        setup start-local-db
+.PHONY: help install dev frontend server server-dev migrate build lint test preview
 
 help: ## Show available targets
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Quick Start:"
 	@echo "  install          Install dependencies"
-	@echo "  dev              Start full dev (SQLite backend + Vite frontend)"
-	@echo "  dev-local-only   Start frontend only (no database)"
-	@echo "  dev-remote       Start frontend (remote API mode)"
-	@echo "  dev-local-db     Same as dev (SQLite backend + Vite frontend)"
+	@echo "  dev              Start backend + Vite using root .env"
+	@echo "  frontend         Start Vite using root .env"
 	@echo ""
 	@echo "Backend:"
 	@echo "  server           Start backend server"
 	@echo "  server-dev       Start backend server (watch mode)"
-	@echo "  db-migrate       Run PostgreSQL migrations"
-	@echo "  db-migrate-sqlite Run SQLite migrations"
-	@echo ""
-	@echo "Compound:"
-	@echo "  setup            Install + run PostgreSQL migrations"
-	@echo "  start-local-db   Run SQLite migrations + start local dev server"
+	@echo "  migrate          Run migrations selected by STORAGE_DRIVER"
 	@echo ""
 	@echo "Checks:"
 	@echo "  build            Type-check and build frontend"
@@ -37,14 +27,8 @@ install:
 dev:
 	cd $(APP_DIR) && npm run dev
 
-dev-local-only:
-	cd $(APP_DIR) && npm run dev:local-only
-
-dev-remote:
-	cd $(APP_DIR) && npm run dev:remote
-
-dev-local-db:
-	cd $(APP_DIR) && npm run dev:local-db
+frontend:
+	cd $(APP_DIR) && npm run frontend
 
 server:
 	cd $(APP_DIR) && npm run server
@@ -52,11 +36,8 @@ server:
 server-dev:
 	cd $(APP_DIR) && npm run server:dev
 
-db-migrate:
+migrate:
 	cd $(APP_DIR) && npm run db:migrate
-
-db-migrate-sqlite:
-	cd $(APP_DIR) && npm run db:migrate:sqlite
 
 build:
 	cd $(APP_DIR) && npm run build
@@ -69,7 +50,3 @@ test:
 
 preview:
 	cd $(APP_DIR) && npm run preview
-
-setup: install db-migrate
-
-start-local-db: db-migrate-sqlite dev-local-db

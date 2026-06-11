@@ -27,6 +27,8 @@ function App() {
   const [editorState, dispatch] = useReducer(editorStateReducer, initialDiagram, createEditorState)
   const [status, setStatus] = useState(isRestored ? getMessages(initialDiagram.meta.locale).status.draftRestored : '')
   const [isCreatingRemote, setIsCreatingRemote] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false)
   const localeRef = useRef(editorState.locale)
   const { diagram, locale, multiSelection, selection } = editorState
   const messages = getMessages(locale)
@@ -94,6 +96,7 @@ function App() {
     handleAgentLauncherClick,
     handleSendAgentMessage,
     handleExecuteAgentProposal,
+    resetAgentSession,
     dispose: disposeAgent,
   } = useWorkflowAgent({
     api,
@@ -130,6 +133,7 @@ function App() {
     if (REMOTE_DIAGRAM_ID && persistenceRef.current) {
       await persistenceRef.current.importDiagram({ diagram: importedDiagram })
     }
+    resetAgentSession()
     skipNextAutosaveRef.current = true
     dispatch({ type: 'replace-diagram', diagram: importedDiagram })
   }
@@ -228,6 +232,7 @@ function App() {
     const nextDiagram = result.source === 'server' ? result.document.diagram : result.diagram
 
     window.localStorage.removeItem(LOCAL_DRAFT_KEY)
+    resetAgentSession()
     skipNextAutosaveRef.current = true
     dispatch({ type: 'replace-diagram', diagram: nextDiagram })
     setLibraryMode(null)
@@ -245,6 +250,7 @@ function App() {
 
     try {
       const response = await persistenceRef.current.restoreRevision(revisionId)
+      resetAgentSession()
       skipNextAutosaveRef.current = true
       dispatch({ type: 'replace-diagram', diagram: response.diagram })
       setStatus(messages.status.revisionRestored)
@@ -275,6 +281,7 @@ function App() {
     persistenceRef.current?.clearLocalCache()
     persistenceRef.current?.primeLocalCache(nextDiagram)
     window.localStorage.removeItem(LOCAL_DRAFT_KEY)
+    resetAgentSession()
     skipNextAutosaveRef.current = true
     dispatch({ type: 'replace-diagram', diagram: nextDiagram })
     setLibraryMode(null)
@@ -329,14 +336,16 @@ function App() {
         onClearDraft={handleClearDraft}
       />
       {status ? <p className="app-status">{status}</p> : null}
-      <main className="editor-grid">
+      <main className={`editor-grid ${isSidebarCollapsed ? 'editor-grid--sidebar-collapsed' : ''} ${isInspectorCollapsed ? 'editor-grid--inspector-collapsed' : ''}`}>
         <Sidebar
           diagram={diagram}
           messages={messages}
           selection={selection}
+          isCollapsed={isSidebarCollapsed}
           onSelect={diagramCommands.handleSelect}
           onAddLane={diagramCommands.handleAddLane}
           onAddNode={diagramCommands.handleAddNode}
+          onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
         />
         <Canvas
           diagram={diagram}
@@ -359,6 +368,8 @@ function App() {
           diagram={diagram}
           selection={selection}
           messages={messages}
+          isCollapsed={isInspectorCollapsed}
+          onToggleCollapse={() => setIsInspectorCollapsed((current) => !current)}
           onUpdateCanvasTitle={diagramCommands.handleUpdateCanvasTitle}
           onUpdateEdgeAnimationMode={diagramCommands.handleUpdateEdgeAnimationMode}
           onUpdateLane={diagramCommands.handleUpdateLane}

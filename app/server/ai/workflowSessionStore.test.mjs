@@ -44,7 +44,6 @@ function createReferenceDiagram() {
     nodes: [
       {
         id: 'node-1',
-        laneId: 'lane-1',
         type: 'default',
         title: 'Start',
         description: '',

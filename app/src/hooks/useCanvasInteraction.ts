@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Lane, Node, Selection } from '../model/diagram'
+import type { Node, Selection } from '../model/diagram'
 import {
   HORIZONTAL_PADDING,
   NODE_MIN_HEIGHT,
@@ -7,8 +7,6 @@ import {
   NODE_MIN_WIDTH,
   VERTICAL_PADDING,
   clamp,
-  getLaneBounds,
-  getLaneByY,
 } from '../utils/geometry'
 
 type ResizeDirection = 'n' | 'e' | 's' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
@@ -54,10 +52,9 @@ type InteractionState =
 
 type UseCanvasInteractionInput = {
   boardRef: React.RefObject<HTMLDivElement | null>
-  lanes: Lane[]
   nodes: Node[]
   editingNodeId: string | null
-  onUpdateNodePosition: (nodeId: string, x: number, y: number, laneId: string) => void
+  onUpdateNodePosition: (nodeId: string, x: number, y: number) => void
   onUpdateNodeWidth: (nodeId: string, width: number) => void
   onUpdateNodeHeight: (nodeId: string, height: number) => void
   onCreateEdge: (fromNodeId: string, toNodeId: string) => void
@@ -69,7 +66,6 @@ export type { InteractionState, ResizeDirection }
 
 export function useCanvasInteraction({
   boardRef,
-  lanes,
   nodes,
   editingNodeId,
   onUpdateNodePosition,
@@ -98,7 +94,7 @@ export function useCanvasInteraction({
       xPx: clientX - rect.left,
       yPx: clientY - rect.top,
     }
-  }, [])
+  }, [boardRef])
 
   const startDrag = useCallback((event: React.PointerEvent<HTMLElement>, node: Node) => {
     const point = getBoardPoint(event.clientX, event.clientY)
@@ -236,23 +232,15 @@ export function useCanvasInteraction({
 
       if (activeInteraction.mode === 'drag') {
         const nextX = clamp(pointerX - activeInteraction.offsetX, HORIZONTAL_PADDING, 100 - node.width - HORIZONTAL_PADDING)
-        const rawY = clamp(pointerY - activeInteraction.offsetY, 0, 100 - node.height)
-        const nextLane = getLaneByY(lanes, rawY + node.height / 2)
-        const nextBounds = getLaneBounds(lanes, nextLane.id)
-        const nextY = clamp(
-          rawY,
-          nextBounds.top + VERTICAL_PADDING,
-          Math.max(nextBounds.top + VERTICAL_PADDING, nextBounds.top + nextBounds.height - node.height - VERTICAL_PADDING),
-        )
+        const nextY = clamp(pointerY - activeInteraction.offsetY, VERTICAL_PADDING, 100 - node.height - VERTICAL_PADDING)
 
-        onUpdateNodePosition(node.id, nextX, nextY, nextLane.id)
+        onUpdateNodePosition(node.id, nextX, nextY)
         return
       }
 
       const deltaX = ((event.clientX - activeInteraction.startPointerX) / rect.width) * 100
       const deltaY = ((event.clientY - activeInteraction.startPointerY) / rect.height) * 100
-      const laneBounds = getLaneBounds(lanes, node.laneId)
-      const maxHeight = Math.max(NODE_MIN_HEIGHT, laneBounds.height - VERTICAL_PADDING * 2)
+      const maxHeight = Math.max(NODE_MIN_HEIGHT, 100 - VERTICAL_PADDING * 2)
 
       let nextX = activeInteraction.startX
       let nextY = activeInteraction.startY
@@ -277,17 +265,17 @@ export function useCanvasInteraction({
         nextHeight = clamp(
           activeInteraction.startHeight + deltaY,
           NODE_MIN_HEIGHT,
-          Math.min(maxHeight, laneBounds.top + laneBounds.height - VERTICAL_PADDING - activeInteraction.startY),
+          Math.min(maxHeight, 100 - VERTICAL_PADDING - activeInteraction.startY),
         )
       }
 
       if (activeInteraction.direction.includes('n')) {
         const maxTopY = activeInteraction.startY + activeInteraction.startHeight - NODE_MIN_HEIGHT
-        nextY = clamp(activeInteraction.startY + deltaY, laneBounds.top + VERTICAL_PADDING, maxTopY)
+        nextY = clamp(activeInteraction.startY + deltaY, VERTICAL_PADDING, maxTopY)
         nextHeight = clamp(activeInteraction.startHeight - (nextY - activeInteraction.startY), NODE_MIN_HEIGHT, maxHeight)
       }
 
-      onUpdateNodePosition(node.id, nextX, nextY, node.laneId)
+      onUpdateNodePosition(node.id, nextX, nextY)
       onUpdateNodeWidth(node.id, nextWidth)
       onUpdateNodeHeight(node.id, nextHeight)
     }
@@ -320,7 +308,6 @@ export function useCanvasInteraction({
       if (activeInteraction.mode === 'connect' && activeInteraction.targetNodeId) {
         onCreateEdge(activeInteraction.nodeId, activeInteraction.targetNodeId)
       }
-
       setInteraction(null)
     }
 
@@ -331,7 +318,7 @@ export function useCanvasInteraction({
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
     }
-  }, [lanes, nodes, interaction, onCreateEdge, onSetMultiSelection, onUpdateNodeHeight, onUpdateNodePosition, onUpdateNodeWidth])
+  }, [boardRef, nodes, interaction, onCreateEdge, onSetMultiSelection, onUpdateNodeHeight, onUpdateNodePosition, onUpdateNodeWidth])
 
   return {
     interaction,

@@ -1,0 +1,306 @@
+{
+  "meta": {
+    "title": "RAG 知识图谱工作流",
+    "locale": "zh-CN",
+    "version": "0.1.0",
+    "edgeAnimationMode": "all-active"
+  },
+  "edges": [
+    {
+      "id": "edge-1",
+      "emphasis": "soft",
+      "toNodeId": "node-2",
+      "fromNodeId": "node-1"
+    },
+    {
+      "id": "edge-2",
+      "emphasis": "soft",
+      "toNodeId": "node-3",
+      "fromNodeId": "node-2"
+    },
+    {
+      "id": "edge-3",
+      "emphasis": "soft",
+      "toNodeId": "node-4",
+      "fromNodeId": "node-2"
+    },
+    {
+      "id": "edge-4",
+      "emphasis": "soft",
+      "toNodeId": "node-5",
+      "fromNodeId": "node-4"
+    },
+    {
+      "id": "edge-5",
+      "emphasis": "soft",
+      "toNodeId": "node-6",
+      "fromNodeId": "node-5"
+    },
+    {
+      "id": "edge-6",
+      "emphasis": "theme",
+      "toNodeId": "node-7",
+      "fromNodeId": "node-3"
+    },
+    {
+      "id": "edge-7",
+      "emphasis": "theme",
+      "toNodeId": "node-8",
+      "fromNodeId": "node-6"
+    },
+    {
+      "id": "edge-8",
+      "emphasis": "soft",
+      "toNodeId": "node-10",
+      "fromNodeId": "node-9"
+    },
+    {
+      "id": "edge-9",
+      "emphasis": "soft",
+      "toNodeId": "node-11",
+      "fromNodeId": "node-9"
+    },
+    {
+      "id": "edge-10",
+      "emphasis": "theme",
+      "toNodeId": "node-10",
+      "fromNodeId": "node-7"
+    },
+    {
+      "id": "edge-11",
+      "emphasis": "theme",
+      "toNodeId": "node-11",
+      "fromNodeId": "node-8"
+    },
+    {
+      "id": "edge-12",
+      "emphasis": "soft",
+      "toNodeId": "node-12",
+      "fromNodeId": "node-10"
+    },
+    {
+      "id": "edge-13",
+      "emphasis": "soft",
+      "toNodeId": "node-12",
+      "fromNodeId": "node-11"
+    },
+    {
+      "id": "edge-14",
+      "emphasis": "theme",
+      "toNodeId": "node-13",
+      "fromNodeId": "node-12"
+    },
+    {
+      "id": "edge-15",
+      "emphasis": "soft",
+      "toNodeId": "node-13",
+      "fromNodeId": "node-9"
+    },
+    {
+      "id": "edge-16",
+      "emphasis": "theme",
+      "toNodeId": "node-14",
+      "fromNodeId": "node-13"
+    }
+  ],
+  "lanes": [
+    {
+      "id": "lane-1",
+      "order": 0,
+      "title": "数据预处理",
+      "subtitle": "输入文档→分块→向量嵌入"
+    },
+    {
+      "id": "lane-2",
+      "order": 1,
+      "title": "知识图谱构建",
+      "subtitle": "实体关系抽取→图构建→实体嵌入"
+    },
+    {
+      "id": "lane-3",
+      "order": 2,
+      "title": "索引与存储",
+      "subtitle": "向量库 + 图数据库并行存储"
+    },
+    {
+      "id": "lane-4",
+      "order": 3,
+      "title": "查询与检索",
+      "subtitle": "用户问题→并行检索→结果融合重排序"
+    },
+    {
+      "id": "lane-5",
+      "order": 4,
+      "title": "答案生成",
+      "subtitle": "融合上下文+问题→LLM→最终答案"
+    }
+  ],
+  "nodes": [
+    {
+      "x": 17.965116559971012,
+      "y": 3.047686298076922,
+      "id": "node-1",
+      "tag": "数据预处理",
+      "type": "default",
+      "title": "输入文档",
+      "width": 13,
+      "height": 16,
+      "description": "原始文档输入"
+    },
+    {
+      "x": 35.767351129363455,
+      "y": 3.349776785714287,
+      "id": "node-2",
+      "tag": "数据预处理",
+      "type": "default",
+      "title": "分块",
+      "width": 13,
+      "height": 16,
+      "description": "文档切分为文本块"
+    },
+    {
+      "x": 56.3768743006341,
+      "y": 2.8529425062165625,
+      "id": "node-3",
+      "tag": "数据预处理",
+      "type": "agent",
+      "title": "向量嵌入",
+      "width": 13,
+      "height": 16,
+      "description": "文本块转为向量表示"
+    },
+    {
+      "x": 77.8108728086535,
+      "y": 2.204536206766635,
+      "id": "node-4",
+      "tag": "知识图谱构建",
+      "type": "agent",
+      "title": "实体关系抽取",
+      "width": 13,
+      "height": 16,
+      "description": "从文本中抽取实体和关系"
+    },
+    {
+      "x": 13.091165101217321,
+      "y": 22.53724662798583,
+      "id": "node-5",
+      "tag": "知识图谱构建",
+      "type": "default",
+      "title": "图构建",
+      "width": 13,
+      "height": 16,
+      "description": "构建知识图谱结构"
+    },
+    {
+      "x": 33.770272286460276,
+      "y": 23.18000150704544,
+      "id": "node-6",
+      "tag": "知识图谱构建",
+      "type": "agent",
+      "title": "实体嵌入",
+      "width": 13,
+      "height": 16,
+      "description": "实体转换为向量表示"
+    },
+    {
+      "x": 54.400000000000006,
+      "y": 30.799999999999997,
+      "id": "node-7",
+      "tag": "索引与存储",
+      "type": "shared",
+      "title": "向量库存储",
+      "width": 13,
+      "height": 16,
+      "description": "向量索引存储"
+    },
+    {
+      "x": 76.2,
+      "y": 30.799999999999997,
+      "id": "node-8",
+      "tag": "索引与存储",
+      "type": "shared",
+      "title": "图数据库存储",
+      "width": 13,
+      "height": 16,
+      "description": "图结构存储"
+    },
+    {
+      "x": 10.8,
+      "y": 53.199999999999996,
+      "id": "node-9",
+      "tag": "查询与检索",
+      "type": "default",
+      "title": "用户问题",
+      "width": 13,
+      "height": 16,
+      "description": "用户输入查询"
+    },
+    {
+      "x": 32.6,
+      "y": 53.199999999999996,
+      "id": "node-10",
+      "tag": "查询与检索",
+      "type": "agent",
+      "title": "向量检索",
+      "width": 13,
+      "height": 16,
+      "description": "基于向量的相似性检索"
+    },
+    {
+      "x": 54.400000000000006,
+      "y": 53.199999999999996,
+      "id": "node-11",
+      "tag": "查询与检索",
+      "type": "agent",
+      "title": "图检索",
+      "width": 13,
+      "height": 16,
+      "description": "基于图结构的检索"
+    },
+    {
+      "x": 76.2,
+      "y": 53.199999999999996,
+      "id": "node-12",
+      "tag": "查询与检索",
+      "type": "agent",
+      "title": "结果融合重排序",
+      "width": 13,
+      "height": 16,
+      "description": "合并检索结果并重排序"
+    },
+    {
+      "x": 10.8,
+      "y": 75.6,
+      "id": "node-13",
+      "tag": "答案生成",
+      "type": "agent",
+      "title": "LLM",
+      "width": 13,
+      "height": 16,
+      "description": "大语言模型生成答案"
+    },
+    {
+      "x": 32.6,
+      "y": 75.6,
+      "id": "node-14",
+      "tag": "答案生成",
+      "type": "output",
+      "title": "最终答案",
+      "width": 13,
+      "height": 16,
+      "description": "输出最终答案"
+    }
+  ],
+  "theme": {
+    "name": "Violet",
+    "accent": "#7d2cff",
+    "lineSoft": "rgba(11, 11, 15, 0.28)",
+    "bgPrimary": "#ffffff",
+    "textMuted": "#555563",
+    "accentDeep": "#5b16c7",
+    "accentSoft": "rgba(125, 44, 255, 0.08)",
+    "textPrimary": "#0b0b0f",
+    "laneBackground": "linear-gradient(90deg, rgba(125, 44, 255, 0.05), rgba(255,255,255,0.72) 24%, rgba(255,255,255,0.84) 100%)",
+    "boardBackground": "linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.74))"
+  }
+}

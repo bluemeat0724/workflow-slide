@@ -62,7 +62,7 @@ export function useDiagramCommands({
     dispatch({ type: 'add-node' })
   }, [dispatch])
 
-  const handleUpdateNode = useCallback((nodeId: string, updates: { title?: string; description?: string; tag?: string; type?: Node['type'] }) => {
+  const handleUpdateNode = useCallback((nodeId: string, updates: { title?: string; description?: string; tag?: string; type?: Node['type']; laneId?: string | null }) => {
     dispatch({ type: 'update-node', nodeId, updates })
   }, [dispatch])
 
@@ -74,8 +74,8 @@ export function useDiagramCommands({
     dispatch({ type: 'delete-node', nodeId })
   }, [dispatch])
 
-  const handleUpdateNodePosition = useCallback((nodeId: string, x: number, y: number, laneId: string) => {
-    dispatch({ type: 'update-node-position', nodeId, x, y, laneId })
+  const handleUpdateNodePosition = useCallback((nodeId: string, x: number, y: number) => {
+    dispatch({ type: 'update-node-position', nodeId, x, y })
   }, [dispatch])
 
   const handleUpdateNodeWidth = useCallback((nodeId: string, width: number) => {

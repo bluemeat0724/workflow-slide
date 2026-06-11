@@ -74,7 +74,7 @@ function normalizeLaneDrafts(parsed, warnings) {
   ]
 }
 
-function normalizeNodeDrafts(parsed, laneKeySet, warnings) {
+function normalizeNodeDrafts(parsed, warnings) {
   const rawNodes = Array.isArray(parsed?.nodes) ? parsed.nodes : []
 
   return rawNodes
@@ -84,16 +84,9 @@ function normalizeNodeDrafts(parsed, laneKeySet, warnings) {
         return null
       }
 
-      const laneKey = toNonEmptyString(node.laneKey ?? node.laneId, '')
-      const resolvedLaneKey = laneKeySet.has(laneKey) ? laneKey : [...laneKeySet][0]
-
-      if (laneKey && resolvedLaneKey !== laneKey) {
-        warnings.push(`Node ${toNonEmptyString(node.key, `node-${index + 1}`)} referenced an unknown lane and was reassigned.`)
-      }
-
       return {
         key: toNonEmptyString(node.key, `node-${index + 1}`),
-        laneKey: resolvedLaneKey,
+        laneKey: toNonEmptyString(node.laneKey, null),
         type: toNodeType(node.type),
         title: toNonEmptyString(node.title, `Step ${index + 1}`),
         description: typeof node.description === 'string' ? node.description.trim() : '',
@@ -142,10 +135,8 @@ export function normalizeWorkflowJson({
 
   const warnings = []
   const laneDrafts = normalizeLaneDrafts(parsed, warnings)
-  const laneIdByKey = new Map()
   const lanes = laneDrafts.map((lane, index) => {
     const id = `lane-${index + 1}`
-    laneIdByKey.set(lane.key, id)
     return {
       id,
       title: lane.title,
@@ -154,14 +145,20 @@ export function normalizeWorkflowJson({
     }
   })
 
-  const nodeDrafts = normalizeNodeDrafts(parsed, new Set(laneIdByKey.keys()), warnings)
+  const nodeDrafts = normalizeNodeDrafts(parsed, warnings)
+  const laneIdByKey = new Map(laneDrafts.map((lane, index) => [lane.key, lanes[index].id]))
+  const fallbackLaneId = lanes[0].id
   const nodeIdByKey = new Map()
   const draftNodes = nodeDrafts.map((node, index) => {
     const id = `node-${index + 1}`
     nodeIdByKey.set(node.key, id)
+    const laneId = node.laneKey ? laneIdByKey.get(node.laneKey) ?? fallbackLaneId : fallbackLaneId
+    if (node.laneKey && !laneIdByKey.has(node.laneKey)) {
+      warnings.push(`Node "${node.key}" referenced an invalid laneKey and was assigned to "${laneDrafts[0].key}".`)
+    }
     return {
       id,
-      laneId: laneIdByKey.get(node.laneKey) ?? lanes[0].id,
+      laneId,
       type: node.type,
       title: node.title,
       description: node.description,
@@ -173,17 +170,13 @@ export function normalizeWorkflowJson({
     }
   })
 
-  const nodes = layoutDiagramNodes({
-    lanes,
-    nodes: draftNodes,
-  })
-
   const edges = normalizeEdgeDrafts(parsed, new Set(nodeIdByKey.keys()), warnings).map((edge, index) => ({
     id: `edge-${index + 1}`,
     fromNodeId: nodeIdByKey.get(edge.fromKey),
     toNodeId: nodeIdByKey.get(edge.toKey),
     emphasis: edge.emphasis,
   }))
+  const nodes = layoutDiagramNodes(draftNodes, lanes, edges)
 
   const preset = getThemePresetById(themePresetId) ?? getDefaultThemePreset()
   if (themePresetId && preset.id !== themePresetId && !theme) {

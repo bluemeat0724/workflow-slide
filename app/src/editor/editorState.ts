@@ -1,6 +1,6 @@
 import { DEFAULT_EDGE_ANIMATION_MODE, type Diagram, type Edge, type EdgeAnimationMode, type Locale, type MultiSelection, type Node, type NodeType, type Selection, type Theme } from '../model/diagram'
 import { createId } from '../utils/ids'
-import { NODE_MIN_HEIGHT, constrainNodeToLane, getLaneBounds } from '../utils/geometry'
+import { NODE_MIN_HEIGHT, constrainNodeToCanvas } from '../utils/geometry'
 import { rebuildTheme } from '../utils/theme'
 
 export type EditorState = {
@@ -15,6 +15,7 @@ type UpdateNodeInput = {
   description?: string
   tag?: string
   type?: NodeType
+  laneId?: string | null
 }
 
 type UpdateLaneInput = {
@@ -37,7 +38,7 @@ export type EditorAction =
   | { type: 'update-node'; nodeId: string; updates: UpdateNodeInput }
   | { type: 'update-node-height'; nodeId: string; height: number }
   | { type: 'delete-node'; nodeId: string }
-  | { type: 'update-node-position'; nodeId: string; x: number; y: number; laneId: string }
+  | { type: 'update-node-position'; nodeId: string; x: number; y: number }
   | { type: 'update-node-width'; nodeId: string; width: number }
   | { type: 'update-canvas-title'; title: string }
   | { type: 'update-edge-animation-mode'; mode: EdgeAnimationMode }
@@ -110,19 +111,20 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
 
     case 'add-lane': {
       const nextOrder = state.diagram.lanes.length
+      const nextLanes = [
+        ...state.diagram.lanes,
+        {
+          id: createId('lane'),
+          title: '',
+          subtitle: '',
+          order: nextOrder,
+        },
+      ]
       return {
         ...state,
         diagram: {
           ...state.diagram,
-          lanes: [
-            ...state.diagram.lanes,
-            {
-              id: createId('lane'),
-              title: '',
-              subtitle: '',
-              order: nextOrder,
-            },
-          ],
+          lanes: nextLanes,
         },
       }
     }
@@ -132,30 +134,20 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
         return state
       }
 
-      const ordered = [...state.diagram.lanes].sort((left, right) => left.order - right.order)
-      const index = ordered.findIndex((lane) => lane.id === action.laneId)
-      if (index === -1) {
+      if (!state.diagram.lanes.some((lane) => lane.id === action.laneId)) {
         return state
       }
 
-      const fallbackLane = ordered[index - 1] ?? ordered[index + 1]
-      const nextLanes = ordered
+      const nextLanes = [...state.diagram.lanes]
         .filter((lane) => lane.id !== action.laneId)
         .map((lane, order) => ({ ...lane, order }))
-      const nextNodes = state.diagram.nodes.map((node) => {
-        if (node.laneId !== action.laneId || !fallbackLane) {
-          return node
-        }
-
-        return constrainNodeToLane({ ...node, laneId: fallbackLane.id }, nextLanes, fallbackLane.id)
-      })
 
       return {
         ...state,
         diagram: {
           ...state.diagram,
           lanes: nextLanes,
-          nodes: nextNodes,
+          nodes: state.diagram.nodes.map((node) => node.laneId === action.laneId ? { ...node, laneId: null } : node),
         },
         selection: { kind: 'canvas' },
         multiSelection: { nodeIds: [] },
@@ -172,17 +164,19 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
       }
 
     case 'add-node': {
-      const targetLane = getDefaultLaneForNewNode(state)
-      const bounds = getLaneBounds(state.diagram.lanes, targetLane.id)
+      const selectedLaneId = state.selection.kind === 'lane'
+        ? state.selection.id
+        : undefined
+      const laneId = selectedLaneId ?? [...state.diagram.lanes].sort((a, b) => a.order - b.order)[0]?.id ?? null
       const nextNode: Node = {
         id: createId('node'),
-        laneId: targetLane.id,
+        laneId,
         type: 'default',
         title: 'New Node',
         description: 'Describe this workflow step.',
         tag: 'new',
-        x: 6,
-        y: bounds.top + 6,
+        x: 20,
+        y: 2,
         width: 18,
         height: 18,
       }
@@ -191,7 +185,7 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
         ...state,
         diagram: {
           ...state.diagram,
-          nodes: [...state.diagram.nodes, nextNode],
+          nodes: [...state.diagram.nodes, constrainNodeToCanvas(nextNode)],
         },
       }
     }
@@ -201,7 +195,10 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
         ...state,
         diagram: {
           ...state.diagram,
-          nodes: state.diagram.nodes.map((node) => (node.id === action.nodeId ? { ...node, ...action.updates } : node)),
+          nodes: state.diagram.nodes.map((node) => {
+            if (node.id !== action.nodeId) return node
+            return { ...node, ...action.updates }
+          }),
         },
       }
 
@@ -220,7 +217,7 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
               return node
             }
 
-            return constrainNodeToLane({ ...node, height: roundedHeight }, state.diagram.lanes, node.laneId)
+            return constrainNodeToCanvas({ ...node, height: roundedHeight })
           }),
         },
       }
@@ -244,7 +241,7 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
           ...state.diagram,
           nodes: state.diagram.nodes.map((node) => (
             node.id === action.nodeId
-              ? constrainNodeToLane({ ...node, x: action.x, y: action.y, laneId: action.laneId }, state.diagram.lanes, action.laneId)
+              ? constrainNodeToCanvas({ ...node, x: action.x, y: action.y })
               : node
           )),
         },
@@ -257,7 +254,7 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
           ...state.diagram,
           nodes: state.diagram.nodes.map((node) => (
             node.id === action.nodeId
-              ? constrainNodeToLane({ ...node, width: action.width }, state.diagram.lanes, node.laneId)
+              ? constrainNodeToCanvas({ ...node, width: action.width })
               : node
           )),
         },
@@ -358,21 +355,6 @@ function toggleNodeId(nodeIds: string[], nodeId: string) {
   return nodeIds.includes(nodeId)
     ? nodeIds.filter((currentNodeId) => currentNodeId !== nodeId)
     : [...nodeIds, nodeId]
-}
-
-function getDefaultLaneForNewNode(state: EditorState) {
-  const { selection } = state
-
-  if (selection.kind === 'lane') {
-    return state.diagram.lanes.find((lane) => lane.id === selection.id) ?? state.diagram.lanes[0]
-  }
-
-  if (selection.kind === 'node') {
-    const selectedNode = state.diagram.nodes.find((node) => node.id === selection.id)
-    return state.diagram.lanes.find((lane) => lane.id === selectedNode?.laneId) ?? state.diagram.lanes[0]
-  }
-
-  return state.diagram.lanes[0]
 }
 
 function normalizeDiagram(diagram: Diagram): Diagram {

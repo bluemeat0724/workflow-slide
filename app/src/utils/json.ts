@@ -74,9 +74,13 @@ function parseLane(value: unknown): Lane {
 
 function parseNode(value: unknown): Node {
   const source = value as Record<string, unknown>
+  const laneId = source.laneId
+  if (laneId !== null && typeof laneId !== 'string') {
+    throw new Error('node.laneId must be a string or null')
+  }
   return {
     id: assertString(source.id, 'node.id'),
-    laneId: assertString(source.laneId, 'node.laneId'),
+    laneId,
     type: assertNodeType(source.type),
     title: assertString(source.title, 'node.title'),
     description: assertString(source.description, 'node.description'),
@@ -109,8 +113,11 @@ export function parseDiagramJson(content: string): Diagram {
   const meta = raw.meta as Record<string, unknown>
   const lanes = Array.isArray(raw.lanes) ? raw.lanes.map(parseLane).sort((a, b) => a.order - b.order) : []
   const nodes = Array.isArray(raw.nodes) ? raw.nodes.map(parseNode) : []
-  const nodeIds = new Set(nodes.map((node) => node.id))
   const laneIds = new Set(lanes.map((lane) => lane.id))
+  if (nodes.some((node) => node.laneId !== null && !laneIds.has(node.laneId))) {
+    throw new Error('node.laneId must reference an existing lane')
+  }
+  const nodeIds = new Set(nodes.map((node) => node.id))
   const edges = Array.isArray(raw.edges)
     ? raw.edges
         .map(parseEdge)
@@ -121,11 +128,6 @@ export function parseDiagramJson(content: string): Diagram {
     throw new Error('At least one lane is required')
   }
 
-  const normalizedNodes = nodes.map((node) => ({
-    ...node,
-    laneId: laneIds.has(node.laneId) ? node.laneId : lanes[0].id,
-  }))
-
   return {
     meta: {
       title: assertString(meta.title, 'meta.title'),
@@ -135,7 +137,7 @@ export function parseDiagramJson(content: string): Diagram {
     },
     theme: parseTheme(raw.theme),
     lanes,
-    nodes: normalizedNodes,
+    nodes,
     edges,
   }
 }

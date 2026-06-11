@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Diagram } from '../model/diagram'
+import type { Diagram, Node as DiagramNode } from '../model/diagram'
 import { getThemePresetById } from '../data/themePresets'
 import { createEditorState, editorStateReducer } from './editorState'
 
@@ -143,15 +143,10 @@ describe('editorStateReducer', () => {
     expect(appendedSelection.multiSelection.nodeIds).toEqual([firstNode.id, secondNode.id])
   })
 
-  it('reassigns nodes into a fallback lane when deleting a lane', () => {
+  it('keeps nodes and clears their assignment when deleting a lane', () => {
     const state = createEditorState(defaultDiagram)
     const laneToDelete = defaultDiagram.lanes[1]
-    const fallbackLane = defaultDiagram.lanes[0]
-    const nodeInDeletedLane = defaultDiagram.nodes.find((node) => node.laneId === laneToDelete.id)
-
-    if (!nodeInDeletedLane) {
-      throw new Error('expected fixture node in lane to delete')
-    }
+    const originalNodes = state.diagram.nodes.map((node) => ({ ...node }))
 
     const nextState = editorStateReducer(state, {
       type: 'delete-lane',
@@ -159,11 +154,20 @@ describe('editorStateReducer', () => {
     })
 
     expect(nextState.diagram.lanes).toHaveLength(defaultDiagram.lanes.length - 1)
-    expect(nextState.diagram.nodes.find((node) => node.id === nodeInDeletedLane.id)?.laneId).toBe(fallbackLane.id)
+    expect(nextState.diagram.nodes.filter((node) => node.id === 'node-4' || node.id === 'node-5' || node.id === 'node-6')
+      .every((node) => node.laneId === null)).toBe(true)
+    const getGeometry = (node: DiagramNode) => ({
+      id: node.id,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+    })
+    expect(nextState.diagram.nodes.map(getGeometry)).toEqual(originalNodes.map(getGeometry))
     expect(nextState.selection).toEqual({ kind: 'canvas' })
   })
 
-  it('creates a new node in the selected lane', () => {
+  it('creates a new node with lane assignment without constraining its position to the lane', () => {
     const initialState = createEditorState(defaultDiagram)
     const lane = defaultDiagram.lanes[1]
     const selectedLaneState = editorStateReducer(initialState, {
@@ -176,17 +180,80 @@ describe('editorStateReducer', () => {
 
     expect(nextState.diagram.nodes).toHaveLength(defaultDiagram.nodes.length + 1)
     expect(newNode?.laneId).toBe(lane.id)
+    expect(newNode).toMatchObject({ x: 20, y: 2, width: 18, height: 18 })
     expect(newNode?.title).toBe('New Node')
+  })
+
+  it('allows a node to move across lane boundaries', () => {
+    const state = createEditorState(defaultDiagram)
+    const node = defaultDiagram.nodes[0]
+
+    const nextState = editorStateReducer(state, {
+      type: 'update-node-position',
+      nodeId: node.id,
+      x: 40,
+      y: 70,
+    })
+
+    expect(nextState.diagram.nodes[0]).toMatchObject({ x: 40, y: 70 })
+  })
+
+  it('updates lane assignment from the inspector without moving the node', () => {
+    const state = createEditorState(defaultDiagram)
+    const originalNode = state.diagram.nodes[0]
+    const nextState = editorStateReducer(state, {
+      type: 'update-node',
+      nodeId: 'node-1',
+      updates: { laneId: 'lane-2' },
+    })
+
+    expect(nextState.diagram.nodes[0].laneId).toBe('lane-2')
+    expect(nextState.diagram.nodes[0]).toMatchObject({
+      x: originalNode.x,
+      y: originalNode.y,
+      width: originalNode.width,
+      height: originalNode.height,
+    })
+  })
+
+  it('preserves free-node assignment while dragging', () => {
+    const state = createEditorState(defaultDiagram)
+    const detached = editorStateReducer(state, {
+      type: 'update-node',
+      nodeId: 'node-1',
+      updates: { laneId: null },
+    })
+    const moved = editorStateReducer(detached, {
+      type: 'update-node-position',
+      nodeId: 'node-1',
+      x: 40,
+      y: 70,
+    })
+
+    expect(moved.diagram.nodes[0]).toMatchObject({ laneId: null, x: 40, y: 70 })
   })
 
   it('creates a new section with empty title and subtitle', () => {
     const state = createEditorState(defaultDiagram)
+    const originalNodes = state.diagram.nodes.map((node) => ({ ...node }))
 
     const nextState = editorStateReducer(state, { type: 'add-lane' })
     const newLane = nextState.diagram.lanes.at(-1)
 
     expect(newLane?.title).toBe('')
     expect(newLane?.subtitle).toBe('')
+    expect(nextState.diagram.nodes).toEqual(originalNodes)
+  })
+
+  it('resizes assigned nodes against canvas bounds instead of lane bounds', () => {
+    const state = createEditorState(defaultDiagram)
+    const resized = editorStateReducer(state, {
+      type: 'update-node-height',
+      nodeId: 'node-1',
+      height: 70,
+    })
+
+    expect(resized.diagram.nodes[0].height).toBe(70)
   })
 
   it('deletes selected nodes and prunes connected edges', () => {

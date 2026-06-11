@@ -105,7 +105,7 @@
     },
     {
       "id": "node-6",
-      "laneId": "lane-3",
+      "laneId": "lane-2",
       "type": "agent",
       "title": "Retrieve Top-K Context",
       "description": "Search the vector store and optional keyword index, then rank and deduplicate candidate chunks.",
@@ -129,7 +129,7 @@
     },
     {
       "id": "node-8",
-      "laneId": "lane-4",
+      "laneId": "lane-3",
       "type": "output",
       "title": "Generate Grounded Answer",
       "description": "Produce an answer constrained by retrieved evidence and include references to supporting chunks.",
@@ -141,7 +141,7 @@
     },
     {
       "id": "node-9",
-      "laneId": "lane-4",
+      "laneId": "lane-3",
       "type": "agent",
       "title": "Collect Feedback and Signals",
       "description": "Capture user feedback, answer quality metrics, and retrieval misses for future tuning.",

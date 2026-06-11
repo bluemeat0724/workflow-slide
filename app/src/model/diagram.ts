@@ -27,7 +27,7 @@ export type NodeType = 'default' | 'agent' | 'shared' | 'output'
 
 export type Node = {
   id: string
-  laneId: string
+  laneId: string | null
   type: NodeType
   title: string
   description: string

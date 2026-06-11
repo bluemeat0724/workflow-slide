@@ -17,6 +17,12 @@
 
 ## AI Agent 配置
 
+## 编辑器视口
+
+- 编辑画布使用百分比坐标，并随中央可用区域同时拉伸宽度和高度，以最大化屏幕空间。
+- `1600 x 900` 仍是连线计算和 HTML/GIF 导出的逻辑坐标系；编辑视口不强制保持 16:9。
+- 结构栏和属性栏可独立收起，收起后只保留紧凑的展开入口。
+
 ### 概览
 
 项目代码使用 **OpenAI SDK**（`openai` npm 包），但默认指向 **DeepSeek API**。DeepSeek 提供 OpenAI 兼容的接口，只需修改 `baseURL` 即可切换。如果使用 OpenAI 原版或其他兼容服务，只需修改 `OPENAI_API_BASE`。
@@ -87,6 +93,17 @@ FIM Completion 需要 DeepSeek 的 `/beta` 端点。代码在 [config.mjs](file:
   → Diagram 校验
   → 返回前端画布
 ```
+
+### Lane 与 AI 布局
+
+- 流程图结构以 nodes 和 edges 为核心，lane 仅表示可选的语义分区。
+- AI 默认生成单 lane；只有参与者、部门、系统或安全域存在明确边界，或用户明确要求时才生成多个 lane。
+- 顺序阶段、分支和汇聚关系通过 edges 表达，不通过增加 lane 表达。
+- Normalizer 在解析 nodes 和 edges 后执行拓扑布局：流程层级从左到右，同层分支纵向排列。
+- 多 lane 布局根据 `order` 计算等高 section 的相对范围；节点所属 lane 的中心和范围是纵向布局软偏好，拓扑换行不会覆盖该语义归属。
+- Agent 在多 lane 场景中必须为每个节点提供有效 `laneKey`，但不直接生成坐标。
+- 无边图或包含环路的图使用稳定网格布局降级。
+- 编辑器只将节点约束在画布范围内；修改 lane 数量或节点 `laneId` 不会移动或缩放节点。
 
 ## GIF 导出说明
 

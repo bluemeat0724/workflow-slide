@@ -6,20 +6,61 @@ type SidebarProps = {
   diagram: Diagram
   messages: Messages
   selection: Selection
+  isCollapsed: boolean
   onSelect: (selection: Selection) => void
   onAddLane: () => void
   onAddNode: () => void
+  onToggleCollapse: () => void
 }
 
-export function Sidebar({ diagram, messages, selection, onSelect, onAddLane, onAddNode }: SidebarProps) {
+function SidebarToggleIcon({ isCollapsed }: { isCollapsed: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 4.5h12" />
+      <path d="M4 10h12" />
+      <path d="M4 15.5h12" />
+      {isCollapsed ? <path d="m8 6 4 4-4 4" /> : <path d="m12 6-4 4 4 4" />}
+    </svg>
+  )
+}
+
+export function Sidebar({ diagram, messages, selection, isCollapsed, onSelect, onAddLane, onAddNode, onToggleCollapse }: SidebarProps) {
   function getNodeTitle(nodeId: string) {
     return diagram.nodes.find((node) => node.id === nodeId)?.title ?? nodeId
+  }
+
+  if (isCollapsed) {
+    return (
+      <aside className="panel sidebar sidebar--collapsed">
+        <button
+          type="button"
+          className="sidebar__collapse-toggle sidebar__collapse-toggle--collapsed"
+          aria-label={messages.sidebar.expand}
+          title={messages.sidebar.expand}
+          onClick={onToggleCollapse}
+        >
+          <SidebarToggleIcon isCollapsed />
+          <span>{messages.sidebar.title}</span>
+        </button>
+      </aside>
+    )
   }
 
   return (
     <aside className="panel sidebar">
       <div className="panel__header">
-        <h2>{messages.sidebar.title}</h2>
+        <div className="sidebar__title-row">
+          <h2>{messages.sidebar.title}</h2>
+          <button
+            type="button"
+            className="sidebar__collapse-toggle"
+            aria-label={messages.sidebar.collapse}
+            title={messages.sidebar.collapse}
+            onClick={onToggleCollapse}
+          >
+            <SidebarToggleIcon isCollapsed={false} />
+          </button>
+        </div>
       </div>
 
       <section className="sidebar__section">

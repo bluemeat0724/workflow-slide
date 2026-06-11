@@ -2,17 +2,18 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { Diagram, EdgeAnimationMode, EdgeEmphasis, NodeType, Selection, Theme } from '../../model/diagram'
 import type { Messages } from '../../i18n'
 import { themePresets, type ThemePresetId } from '../../data/themePresets'
-import { getSectionTitle } from '../../utils/sectionLabels'
 
 type InspectorProps = {
   diagram: Diagram
   selection: Selection
   messages: Messages
+  isCollapsed: boolean
+  onToggleCollapse: () => void
   onUpdateCanvasTitle: (title: string) => void
   onUpdateEdgeAnimationMode: (mode: EdgeAnimationMode) => void
   onUpdateLane: (laneId: string, updates: { title?: string; subtitle?: string }) => void
   onDeleteLane: (laneId: string) => void
-  onUpdateNode: (nodeId: string, updates: { title?: string; description?: string; tag?: string; type?: NodeType }) => void
+  onUpdateNode: (nodeId: string, updates: { title?: string; description?: string; tag?: string; type?: NodeType; laneId?: string | null }) => void
   onDeleteNode: (nodeId: string) => void
   onUpdateEdge: (edgeId: string, updates: { fromNodeId?: string; toNodeId?: string; emphasis?: EdgeEmphasis }) => void
   onDeleteEdge: (edgeId: string) => void
@@ -26,6 +27,8 @@ export function Inspector({
   diagram,
   selection,
   messages,
+  isCollapsed,
+  onToggleCollapse,
   onUpdateCanvasTitle,
   onUpdateEdgeAnimationMode,
   onUpdateLane,
@@ -68,17 +71,7 @@ export function Inspector({
 
   function getNodeLabel(nodeId: string) {
     const node = diagram.nodes.find((item) => item.id === nodeId)
-    if (!node) {
-      return nodeId
-    }
-
-    const lane = diagram.lanes.find((item) => item.id === node.laneId)
-    if (!lane) {
-      return node.title
-    }
-
-    const laneTitle = getSectionTitle(lane)
-    return laneTitle ? `${node.title} (${laneTitle})` : node.title
+    return node?.title ?? nodeId
   }
 
   // Force remount when switching source node so the select resets cleanly.
@@ -92,6 +85,23 @@ export function Inspector({
       </select>
     </label>
   ) : null
+
+  if (isCollapsed) {
+    return (
+      <aside className="panel inspector inspector--collapsed">
+        <button
+          type="button"
+          className="panel-collapse-toggle panel-collapse-toggle--collapsed"
+          aria-label={messages.inspector.expand}
+          title={messages.inspector.expand}
+          onClick={onToggleCollapse}
+        >
+          <span aria-hidden="true">‹</span>
+          <strong>{messages.inspector.title}</strong>
+        </button>
+      </aside>
+    )
+  }
 
   let content: ReactNode
 
@@ -210,6 +220,15 @@ export function Inspector({
               <option value="output">{messages.nodeTypes.output}</option>
             </select>
           </label>
+          <label className="inspector__field">
+            <span>{messages.inspector.laneField}</span>
+            <select value={node.laneId ?? ''} onChange={(event) => onUpdateNode(node.id, { laneId: event.target.value || null })}>
+              <option value="">{messages.inspector.noLane}</option>
+              {[...diagram.lanes].sort((a, b) => a.order - b.order).map((lane) => (
+                <option key={lane.id} value={lane.id}>{lane.title || lane.id}</option>
+              ))}
+            </select>
+          </label>
           {nodeConnectField}
         </div>
         <button type="button" className="inspector__action-button" disabled={!resolvedTargetNodeId} onClick={() => onCreateEdge(node.id, resolvedTargetNodeId)}>
@@ -274,7 +293,18 @@ export function Inspector({
   return (
     <aside className="panel inspector">
       <div className="panel__header">
-        <h2>{messages.inspector.title}</h2>
+        <div className="panel__title-row">
+          <h2>{messages.inspector.title}</h2>
+          <button
+            type="button"
+            className="panel-collapse-toggle"
+            aria-label={messages.inspector.collapse}
+            title={messages.inspector.collapse}
+            onClick={onToggleCollapse}
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
       </div>
       {content}
     </aside>

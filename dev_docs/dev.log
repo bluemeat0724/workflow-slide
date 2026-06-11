@@ -305,3 +305,10 @@
   - `README.md`：补充 Makefile 快捷命令章节缺失的 `server-dev`、`db-migrate`、`db-migrate-sqlite`、`setup`、`start-local-db`、`preview` 命令
   - `AGENTS.md`：更新 Repository Layout，补充 `useCanvasInteraction.ts`、`useDiagramLibrary.ts`、`persistenceService.test.ts`、`utils/agentHelpers.ts`、`utils/edgeAnimation.ts`、`styles/agent.css`、`shared/themePresetDefs.json`、`server/routes.mjs` 等新增文件；扩展 `server/ai/` 和 `server/render/` 目录说明；更新 Key data flow 链入 `agentHelpers.ts`、`edgeAnimation.ts`、`themePresetDefs.json`、`routes.mjs`
   - `dev_docs/architecture.md`：更新主要目录列表，补充 `hooks/`、`utils/`、`shared/` 及 server 子目录的完整文件描述
+- 画布右上角新增全屏展示按钮，使用浏览器 Fullscreen API 放大画布区域，并支持按钮或 Esc 退出全屏；全屏时仍保留 AI Agent 悬浮入口和对话窗口。
+- 优化 AI agent 空输入引导：
+  - `WorkflowAgentWindow` 在输入框为空时随机展示 3 条引导问题，帮助用户更快组织 workflow 需求
+  - 点击引导问题会自动回填到输入框，并保持焦点，方便直接继续编辑或发送
+- 优化 AI agent 问句跟进：
+  - 当最近一条 assistant 消息以问号结尾时，在输入框上方显示推荐回复，如 “Help me decide” / “Give me some suggestions”
+  - 点击推荐回复会回填到输入框，方便用户快速续聊

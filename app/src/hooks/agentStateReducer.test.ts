@@ -32,6 +32,27 @@ describe('agentStateReducer', () => {
     expect(next.isOpen).toBe(false)
   })
 
+  it('resets the current session state', () => {
+    const state = createState({
+      isOpen: true,
+      sessionId: 'session-1',
+      messages: [{ id: '1', role: 'user', content: 'hi', createdAt: now }],
+      state: 'awaiting_execution_confirmation',
+      proposal: { version: 1, title: 'Title', summary: 'Summary', themePresetId: 'violet' },
+      input: 'draft',
+      isLoading: true,
+      isExecuting: true,
+      error: 'Something failed',
+      launcherPosition: { x: 240, y: 360 },
+    })
+
+    const next = agentStateReducer(state, { type: 'reset-session' })
+    expect(next).toEqual({
+      ...createState(),
+      launcherPosition: { x: 240, y: 360 },
+    })
+  })
+
   it('sets session with welcome message', () => {
     const state = createState()
     const next = agentStateReducer(state, {

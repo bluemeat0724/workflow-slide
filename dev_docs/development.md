@@ -2,49 +2,38 @@
 
 ## 环境变量
 
-所有环境变量统一放在项目根目录 `.env`。`vite`、`npm run server`、`npm run db:migrate`、`docker compose` 均读取这一个文件。
+所有环境变量统一放在项目根目录 `.env`。`npm run dev`、`npm run frontend`、`npm run server`、`npm run db:migrate` 和 `docker compose` 均读取这一个文件。
 
-## npm 启动模式
+数据库类型必须显式配置，且只由环境变量决定：
 
-三种前端启动模式，按需选择。
-
-### local-only — 纯前端模式
-
-```bash
-npm run dev           # 或 make dev
+```dotenv
+STORAGE_DRIVER=sqlite
+# 或
+STORAGE_DRIVER=postgres
 ```
 
-- 只启动 Vite 前端，不依赖任何后端服务
-- **不支持**远端保存、图列表、版本历史等数据库功能
-- **不支持** AI workflow agent（无法访问 `/api/ai/*`）
-- 编辑结果仅保存在浏览器本地（localStorage），关闭浏览器后可能丢失
-- 支持导出 JSON、HTML、GIF 动画（GIF 需后端 `POST /api/gif`）
+缺失或配置为其他值时，服务端和迁移命令会直接报错。SQLite 仅读取 `SQLITE_FILE`；PostgreSQL 仅读取 `DATABASE_URL` 或 `DB_*`。
 
-### remote — 远端 API 模式
+## 开发启动
+
+完整开发模式：
 
 ```bash
-npm run dev:remote    # 或 make dev-remote
+npm run db:migrate   # 或 make migrate
+npm run dev          # 或 make dev
 ```
 
-- 前端连接到独立的远端 API 服务器
-- 需在根目录 `.env` 中配置 `VITE_STORAGE_MODE=remote` 和 `VITE_API_BASE_URL`
-- 支持完整的数据库功能：远端保存、图列表、版本历史、版本恢复
-- 如果远端服务器配置了 AI，则支持 AI workflow agent
-- 适合：团队共用服务端、生产部署场景
+`npm run dev` 同时启动 Node.js 后端和 Vite。它会保留根目录 `.env` 中的服务端配置，但会为前端开发进程强制注入 `VITE_STORAGE_MODE=local-db` 和 `VITE_API_BASE_URL=/api`，确保默认就是完整本地联调模式。
 
-### local-db — 本地数据库模式
+仅启动前端：
 
 ```bash
-# 首次需先执行迁移
-npm run db:migrate:sqlite   # 或 make db-migrate-sqlite
-npm run dev:local-db        # 或 make dev-local-db
+npm run frontend     # 或 make frontend
 ```
 
-- 同时启动前端和本地 Node.js 后端，使用 SQLite 存储
-- 需在根目录 `.env` 中配置 `STORAGE_DRIVER=sqlite`
-- 支持完整的数据库功能（本地持久化），无需外部 PostgreSQL
-- 如果配置了 AI 密钥，同样支持 AI workflow agent
-- 适合：单机完整开发体验
+- `VITE_STORAGE_MODE=local-only`：浏览器本地存储，不依赖后端。
+- `VITE_STORAGE_MODE=remote`：连接 `VITE_API_BASE_URL` 指定的 API。
+- `VITE_STORAGE_MODE=local-db`：通过本地 `/api` 使用同时启动的后端。
 
 ## 命令参考
 
@@ -53,25 +42,15 @@ npm run dev:local-db        # 或 make dev-local-db
 | npm 命令 | Make 目标 | 说明 |
 |---|---|---|
 | `npm install` | `make install` | 安装依赖 |
-| `npm run dev` | `make dev` | 完整开发模式（SQLite 后端 + Vite 前端） |
-| `npm run dev:local-only` | `make dev-local-only` | 纯前端模式（不依赖后端） |
-| `npm run dev:remote` | `make dev-remote` | 远端 API 模式 |
-| `npm run dev:local-db` | `make dev-local-db` | 同 `npm run dev` |
-| `npm run server` | `make server` | 启动后端（PostgreSQL 默认） |
+| `npm run dev` | `make dev` | 按根目录 `.env` 启动后端 + Vite |
+| `npm run frontend` | `make frontend` | 按根目录 `.env` 仅启动 Vite |
+| `npm run server` | `make server` | 按 `STORAGE_DRIVER` 启动后端 |
 | `npm run server:dev` | `make server-dev` | 启动后端 watch 模式 |
-| `npm run db:migrate` | `make db-migrate` | 执行 PostgreSQL 迁移 |
-| `npm run db:migrate:sqlite` | `make db-migrate-sqlite` | 执行 SQLite 迁移 |
+| `npm run db:migrate` | `make migrate` | 按 `STORAGE_DRIVER` 执行迁移 |
 | `npm run test` | `make test` | 运行 Vitest 测试 |
 | `npm run lint` | `make lint` | 运行 ESLint |
 | `npm run build` | `make build` | 类型检查 + 构建前端 |
 | `npm run preview` | `make preview` | 预览生产构建 |
-
-组合命令:
-
-| Make 目标 | 说明 |
-|---|---|
-| `make setup` | install + db-migrate |
-| `make start-local-db` | db-migrate-sqlite + dev-local-db |
 
 ## Docker 部署
 
