@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { constrainNodeToCanvas, getLaneIdAtPoint, getNodeLaneId, getNodeSidePoint } from './geometry'
+import { constrainNodeToCanvas, getEdgeAnchor, getLaneIdAtPoint, getNodeLaneId, getNodeSidePoint } from './geometry'
 
 const lanes = [
   { id: 'lane-1', title: 'A', subtitle: '', order: 0 },
@@ -79,6 +79,31 @@ describe('getNodeSidePoint', () => {
     })
   })
 
+  it('returns canvas coordinates for edge endpoint handles', () => {
+    const source = {
+      id: 'source', laneId: null, type: 'default', title: '', description: '', tag: '',
+      x: 10, y: 20, width: 20, height: 10, heightMode: 'auto',
+    } as const
+    const target = {
+      id: 'target', laneId: null, type: 'default', title: '', description: '', tag: '',
+      x: 60, y: 20, width: 20, height: 10, heightMode: 'auto',
+    } as const
+
+    expect(getEdgeAnchor(
+      { id: 'edge', fromNodeId: source.id, toNodeId: target.id, emphasis: 'theme' },
+      [source, target],
+    )).toMatchObject({
+      startX: 30,
+      startY: 25,
+      endX: 60,
+      endY: 25,
+      startXCanvas: 480,
+      startYCanvas: 225,
+      endXCanvas: 960,
+      endYCanvas: 225,
+    })
+  })
+
   it('constrains nodes to the canvas instead of lane bounds', () => {
     const node = {
       id: 'node',
@@ -94,7 +119,7 @@ describe('getNodeSidePoint', () => {
     } as const
 
     expect(constrainNodeToCanvas(node)).toMatchObject({ x: 40, y: 70 })
-    expect(constrainNodeToCanvas({ ...node, x: 95, y: 95 })).toMatchObject({ x: 80, y: 78 })
+    expect(constrainNodeToCanvas({ ...node, x: 95, y: 95 })).toMatchObject({ x: 79, y: 77 })
   })
 
   it('resolves lane membership from points and node centers', () => {

@@ -166,7 +166,8 @@ export function normalizeWorkflowJson({
       x: 0,
       y: 0,
       width: 18,
-      height: 16,
+      height: 8.5,
+      heightMode: 'auto',
     }
   })
 

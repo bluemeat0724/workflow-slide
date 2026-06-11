@@ -110,7 +110,12 @@ describe('normalizeWorkflowJson', () => {
     })
 
     const nodes = result.diagram.nodes
-    expect(nodes.every((node) => node.laneId === 'lane-2' && node.width === 16 && node.height === 14)).toBe(true)
+    expect(nodes.every((node) => (
+      node.laneId === 'lane-2'
+      && node.width === 16
+      && node.height === 8.5
+      && node.heightMode === 'auto'
+    ))).toBe(true)
     nodes.forEach((node, index) => {
       nodes.slice(index + 1).forEach((other) => {
         const overlaps = node.x < other.x + other.width
@@ -253,7 +258,7 @@ describe('normalizeWorkflowJson', () => {
         expect(Math.abs(node.y - other.y)).toBeGreaterThanOrEqual(node.height)
       })
     })
-    expect(branches.some((node) => node.y + node.height / 2 >= 50)).toBe(true)
+    expect(branches.every((node) => node.y >= 6 && node.y + node.height <= 97)).toBe(true)
   })
 
   it.each([8, 12])('wraps a %i-node linear workflow into multiple rows without overlap', (nodeCount) => {
@@ -287,7 +292,31 @@ describe('normalizeWorkflowJson', () => {
       })
     })
 
-    expect(nodes[3].x).toBe(nodes[4].x)
-    expect(nodes[3].y).toBeLessThan(nodes[4].y)
+    expect(nodes[4].x).toBe(nodes[5].x)
+    expect(nodes[4].y).toBeLessThan(nodes[5].y)
+  })
+
+  it('estimates taller nodes for longer complete content', () => {
+    const result = normalizeWorkflowJson({
+      jsonText: JSON.stringify({
+        meta: { title: 'Content Height', locale: 'zh-CN', version: '0.1.0' },
+        lanes: [{ key: 'main', title: 'Content Height', subtitle: '' }],
+        nodes: [
+          { key: 'short', type: 'default', title: '短节点', description: '简短描述', tag: '' },
+          {
+            key: 'long',
+            type: 'default',
+            title: '包含更多信息的节点标题',
+            description: '这是一段需要自动换行并完整展示的较长节点描述，用于验证内容高度估算。',
+            tag: '完整内容',
+          },
+        ],
+        edges: [{ fromKey: 'short', toKey: 'long', emphasis: 'theme' }],
+      }),
+      locale: 'zh-CN',
+    })
+
+    expect(result.diagram.nodes[0].height).toBe(8.5)
+    expect(result.diagram.nodes[1].height).toBeGreaterThan(result.diagram.nodes[0].height)
   })
 })

@@ -66,8 +66,16 @@ export function useDiagramCommands({
     dispatch({ type: 'update-node', nodeId, updates })
   }, [dispatch])
 
-  const handleUpdateNodeHeight = useCallback((nodeId: string, height: number) => {
-    dispatch({ type: 'update-node-height', nodeId, height })
+  const handleMeasureNodeHeight = useCallback((nodeId: string, height: number) => {
+    dispatch({ type: 'measure-node-height', nodeId, height })
+  }, [dispatch])
+
+  const handleResizeNodeHeight = useCallback((nodeId: string, height: number) => {
+    dispatch({ type: 'resize-node-height', nodeId, height })
+  }, [dispatch])
+
+  const handleResetNodeHeight = useCallback((nodeId: string) => {
+    dispatch({ type: 'reset-node-height', nodeId })
   }, [dispatch])
 
   const handleDeleteNode = useCallback((nodeId: string) => {
@@ -151,7 +159,9 @@ export function useDiagramCommands({
     handleUpdateLane,
     handleAddNode,
     handleUpdateNode,
-    handleUpdateNodeHeight,
+    handleMeasureNodeHeight,
+    handleResizeNodeHeight,
+    handleResetNodeHeight,
     handleDeleteNode,
     handleUpdateNodePosition,
     handleUpdateNodeWidth,

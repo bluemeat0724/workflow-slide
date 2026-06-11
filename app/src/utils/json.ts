@@ -78,6 +78,9 @@ function parseNode(value: unknown): Node {
   if (laneId !== null && typeof laneId !== 'string') {
     throw new Error('node.laneId must be a string or null')
   }
+  if (source.heightMode !== 'auto' && source.heightMode !== 'manual') {
+    throw new Error('node.heightMode is invalid')
+  }
   return {
     id: assertString(source.id, 'node.id'),
     laneId,
@@ -89,6 +92,7 @@ function parseNode(value: unknown): Node {
     y: assertNumber(source.y, 'node.y'),
     width: assertNumber(source.width, 'node.width'),
     height: assertNumber(source.height, 'node.height'),
+    heightMode: source.heightMode,
   }
 }
 

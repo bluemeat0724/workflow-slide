@@ -29,6 +29,7 @@ export function buildWorkflowJsonSystemPrompt() {
     '- Lanes are displayed as equal-height horizontal sections ordered by their array position. For N lanes, lane index i occupies approximately vertical range i/N to (i+1)/N. Use this only to reason about the correct laneKey; do not output coordinates.',
     '- Lanes describe semantic grouping only. Node order, branching, parallel work, and convergence must be expressed with edges.',
     '- node.type must be one of default, agent, shared, output.',
+    '- Keep node titles, descriptions, and tags concise so the complete workflow remains readable on one canvas.',
     '- edge.emphasis must be soft or theme.',
     '- If an existing editor diagram reference is provided, use it as a baseline reference so the new workflow can refine the current canvas instead of starting from scratch.',
     '- Preserve still-valid workflow structure, labels, transitions, and meaningful responsibility boundaries from the reference when they remain compatible with the confirmed proposal.',

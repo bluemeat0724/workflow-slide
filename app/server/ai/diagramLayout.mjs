@@ -1,12 +1,34 @@
-const HORIZONTAL_PADDING = 3
-const TOP_PADDING = 9
-const BOTTOM_PADDING = 3
-const DEFAULT_NODE_WIDTH = 16
-const MIN_NODE_WIDTH = 12
-const NODE_HEIGHT = 14
-const MIN_HORIZONTAL_GAP = 3
-const MIN_VERTICAL_GAP = 3
-const MAX_LEVELS_PER_ROW = 4
+import nodeSizing from '../../shared/nodeSizing.json' with { type: 'json' }
+
+const BOARD_HEIGHT = 900
+const CARD_PADDING_Y = 14
+const CARD_PADDING_X = 16
+const TITLE_LINE_HEIGHT = 18
+const BODY_LINE_HEIGHT = 16
+const TITLE_MARGIN = 6
+const TAG_HEIGHT_WITH_MARGIN = 32
+
+function getVisualLength(value) {
+  return [...value].reduce((total, character) => total + (/[\u2e80-\u9fff]/u.test(character) ? 1 : 0.55), 0)
+}
+
+function getLineCount(value, availableWidth, fontSize, maxLines = Number.POSITIVE_INFINITY) {
+  if (!value) return 0
+  const capacity = Math.max(1, availableWidth / fontSize)
+  return Math.min(maxLines, Math.max(1, Math.ceil(getVisualLength(value) / capacity)))
+}
+
+export function estimateNodeHeight(node, width = nodeSizing.defaultWidth) {
+  const availableWidth = (width / 100) * 1600 - CARD_PADDING_X * 2
+  const titleLines = getLineCount(node.title, availableWidth, 17)
+  const descriptionLines = getLineCount(node.description, availableWidth, 12)
+  const contentHeight = CARD_PADDING_Y * 2
+    + titleLines * TITLE_LINE_HEIGHT
+    + (descriptionLines > 0 ? TITLE_MARGIN + descriptionLines * BODY_LINE_HEIGHT : 0)
+    + (node.tag ? TAG_HEIGHT_WITH_MARGIN : 0)
+
+  return Number(Math.max(nodeSizing.minAutoHeight, (contentHeight / BOARD_HEIGHT) * 100).toFixed(2))
+}
 
 function getTopologicalLevels(nodes, edges) {
   const nodeIds = new Set(nodes.map((node) => node.id))
@@ -44,41 +66,33 @@ function getLaneBounds(lanes, laneId) {
   const index = ordered.findIndex((lane) => lane.id === laneId)
   const resolvedIndex = Math.max(index, 0)
   const height = 100 / Math.max(ordered.length, 1)
-  return {
-    top: resolvedIndex * height,
-    bottom: (resolvedIndex + 1) * height,
-  }
+  return { top: resolvedIndex * height, bottom: (resolvedIndex + 1) * height }
 }
 
-function distributeVertically(nodes, lanes, bounds, preferredCenter) {
-  const usableTop = bounds.top + NODE_HEIGHT / 2
-  const usableBottom = bounds.bottom - NODE_HEIGHT / 2
-
-  if (nodes.length === 1) {
-    const node = nodes[0]
-    return [{ node, centerY: Math.max(usableTop, Math.min(usableBottom, preferredCenter)) }]
-  }
-
+function distributeVertically(nodes, bounds, preferredCenter) {
   const sorted = [...nodes].sort((left, right) => left.index - right.index)
-  const gap = MIN_VERTICAL_GAP + NODE_HEIGHT
-  const totalHeight = gap * (sorted.length - 1)
+  const totalHeight = sorted.reduce((total, node) => total + node.height, 0)
+    + nodeSizing.minVerticalGap * Math.max(sorted.length - 1, 0)
+  const globalTop = nodeSizing.topPadding
+  const globalBottom = 100 - nodeSizing.bottomPadding
+  const availableTop = Math.max(globalTop, bounds.top)
+  const availableBottom = Math.min(globalBottom, bounds.bottom)
   const preferredStart = preferredCenter - totalHeight / 2
-  const laneMaxStart = usableBottom - totalHeight
-  const globalTop = TOP_PADDING + NODE_HEIGHT / 2
-  const globalBottom = 100 - BOTTOM_PADDING - NODE_HEIGHT / 2
-  const start = laneMaxStart >= usableTop
-    ? Math.max(usableTop, Math.min(laneMaxStart, preferredStart))
+  const start = totalHeight <= availableBottom - availableTop
+    ? Math.max(availableTop, Math.min(availableBottom - totalHeight, preferredStart))
     : Math.max(globalTop, Math.min(globalBottom - totalHeight, preferredStart))
+  let cursor = start
 
-  return sorted.map((node, index) => ({
-    node,
-    centerY: start + index * gap,
-  }))
+  return sorted.map((node) => {
+    const result = { node, y: cursor }
+    cursor += node.height + nodeSizing.minVerticalGap
+    return result
+  })
 }
 
 function distributeLevelNodes(nodes, lanes, row, rowCount, rowBounds) {
   if (lanes.length <= 1) {
-    return distributeVertically(nodes, lanes, rowBounds, (rowBounds.top + rowBounds.bottom) / 2)
+    return distributeVertically(nodes, rowBounds, (rowBounds.top + rowBounds.bottom) / 2)
   }
 
   const nodesByLane = new Map()
@@ -90,16 +104,20 @@ function distributeLevelNodes(nodes, lanes, row, rowCount, rowBounds) {
 
   return [...nodesByLane.entries()].flatMap(([laneId, laneNodes]) => {
     const laneBounds = getLaneBounds(lanes, laneId)
-    const laneTop = Math.max(TOP_PADDING, laneBounds.top)
-    const laneBottom = Math.min(100 - BOTTOM_PADDING, laneBounds.bottom)
+    const laneTop = Math.max(nodeSizing.topPadding, laneBounds.top)
+    const laneBottom = Math.min(100 - nodeSizing.bottomPadding, laneBounds.bottom)
     const preferredCenter = laneTop + ((row + 0.5) / rowCount) * (laneBottom - laneTop)
-    return distributeVertically(
-      laneNodes,
-      lanes,
-      { top: laneTop, bottom: laneBottom },
-      preferredCenter,
-    )
+    return distributeVertically(laneNodes, { top: laneTop, bottom: laneBottom }, preferredCenter)
   })
+}
+
+function withEstimatedHeights(nodes, width) {
+  return nodes.map((node) => ({
+    ...node,
+    width,
+    height: estimateNodeHeight(node, width),
+    heightMode: 'auto',
+  }))
 }
 
 function layoutByLevels(nodes, lanes, levelById) {
@@ -113,20 +131,18 @@ function layoutByLevels(nodes, lanes, levelById) {
   })
 
   const orderedLevels = [...levels.keys()].sort((left, right) => left - right)
-  const levelsPerRow = Math.min(MAX_LEVELS_PER_ROW, orderedLevels.length)
+  const levelsPerRow = Math.min(nodeSizing.maxLevelsPerRow, orderedLevels.length)
   const rowCount = Math.ceil(orderedLevels.length / levelsPerRow)
-  const nodeWidth = Math.max(MIN_NODE_WIDTH, Math.min(
-    DEFAULT_NODE_WIDTH,
-    (100 - HORIZONTAL_PADDING * 2 - MIN_HORIZONTAL_GAP * Math.max(levelsPerRow - 1, 0)) / levelsPerRow,
+  const nodeWidth = Math.max(nodeSizing.minWidth, Math.min(
+    nodeSizing.defaultWidth,
+    (100 - nodeSizing.horizontalPadding * 2 - nodeSizing.minHorizontalGap * Math.max(levelsPerRow - 1, 0)) / levelsPerRow,
   ))
-  const availableWidth = 100 - HORIZONTAL_PADDING * 2 - nodeWidth
-  const levelGap = levelsPerRow > 1
-    ? availableWidth / (levelsPerRow - 1)
-    : 0
-  const startX = levelsPerRow > 1
-    ? HORIZONTAL_PADDING
-    : 50 - nodeWidth / 2
-  const availableHeight = 100 - TOP_PADDING - BOTTOM_PADDING
+  const measuredNodes = withEstimatedHeights(indexedNodes, nodeWidth)
+  const measuredById = new Map(measuredNodes.map((node) => [node.id, node]))
+  const availableWidth = 100 - nodeSizing.horizontalPadding * 2 - nodeWidth
+  const levelGap = levelsPerRow > 1 ? availableWidth / (levelsPerRow - 1) : 0
+  const startX = levelsPerRow > 1 ? nodeSizing.horizontalPadding : 50 - nodeWidth / 2
+  const availableHeight = 100 - nodeSizing.topPadding - nodeSizing.bottomPadding
   const rowHeight = availableHeight / rowCount
   const laidOut = new Map()
 
@@ -134,18 +150,17 @@ function layoutByLevels(nodes, lanes, levelById) {
     const row = Math.floor(levelIndex / levelsPerRow)
     const columnInRow = levelIndex % levelsPerRow
     const displayColumn = row % 2 === 0 ? columnInRow : levelsPerRow - columnInRow - 1
-    const x = Math.min(100 - HORIZONTAL_PADDING - nodeWidth, startX + displayColumn * levelGap)
+    const x = Math.min(100 - nodeSizing.horizontalPadding - nodeWidth, startX + displayColumn * levelGap)
     const rowBounds = {
-      top: TOP_PADDING + row * rowHeight,
-      bottom: TOP_PADDING + (row + 1) * rowHeight,
+      top: nodeSizing.topPadding + row * rowHeight,
+      bottom: nodeSizing.topPadding + (row + 1) * rowHeight,
     }
-    distributeLevelNodes(levels.get(level), lanes, row, rowCount, rowBounds).forEach(({ node, centerY }) => {
+    const levelNodes = levels.get(level).map((node) => measuredById.get(node.id))
+    distributeLevelNodes(levelNodes, lanes, row, rowCount, rowBounds).forEach(({ node, y }) => {
       laidOut.set(node.id, {
         ...node,
         x,
-        y: Math.max(TOP_PADDING, Math.min(100 - BOTTOM_PADDING - NODE_HEIGHT, centerY - NODE_HEIGHT / 2)),
-        width: nodeWidth,
-        height: NODE_HEIGHT,
+        y: Math.max(nodeSizing.topPadding, Math.min(100 - nodeSizing.bottomPadding - node.height, y)),
       })
     })
   })
@@ -159,21 +174,30 @@ function layoutByLevels(nodes, lanes, levelById) {
 }
 
 function layoutGrid(nodes) {
-  const columns = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(nodes.length))))
+  const columns = Math.min(nodeSizing.maxLevelsPerRow, Math.max(1, Math.ceil(Math.sqrt(nodes.length))))
   const rows = Math.ceil(nodes.length / columns)
-  const horizontalGap = (100 - HORIZONTAL_PADDING * 2 - columns * DEFAULT_NODE_WIDTH) / Math.max(columns - 1, 1)
-  const availableHeight = 100 - TOP_PADDING - BOTTOM_PADDING - rows * NODE_HEIGHT
-  const verticalGap = rows > 1 ? Math.max(MIN_VERTICAL_GAP, availableHeight / (rows - 1)) : 0
+  const measuredNodes = withEstimatedHeights(nodes, nodeSizing.defaultWidth)
+  const rowHeights = Array.from({ length: rows }, (_, row) => Math.max(
+    ...measuredNodes.slice(row * columns, (row + 1) * columns).map((node) => node.height),
+  ))
+  const horizontalGap = (100 - nodeSizing.horizontalPadding * 2 - columns * nodeSizing.defaultWidth) / Math.max(columns - 1, 1)
+  const availableGap = 100 - nodeSizing.topPadding - nodeSizing.bottomPadding
+    - rowHeights.reduce((total, height) => total + height, 0)
+  const verticalGap = rows > 1 ? Math.max(nodeSizing.minVerticalGap, availableGap / (rows - 1)) : 0
+  const rowTops = []
+  let rowCursor = nodeSizing.topPadding
+  rowHeights.forEach((height) => {
+    rowTops.push(rowCursor)
+    rowCursor += height + verticalGap
+  })
 
-  return nodes.map((node, index) => {
+  return measuredNodes.map((node, index) => {
     const row = Math.floor(index / columns)
     const column = index % columns
     return {
       ...node,
-      x: HORIZONTAL_PADDING + column * (DEFAULT_NODE_WIDTH + horizontalGap),
-      y: TOP_PADDING + row * (NODE_HEIGHT + verticalGap),
-      width: DEFAULT_NODE_WIDTH,
-      height: NODE_HEIGHT,
+      x: nodeSizing.horizontalPadding + column * (nodeSizing.defaultWidth + horizontalGap),
+      y: Math.min(100 - nodeSizing.bottomPadding - node.height, rowTops[row]),
     }
   })
 }

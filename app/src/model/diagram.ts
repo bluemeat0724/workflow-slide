@@ -24,6 +24,7 @@ export type Lane = {
 }
 
 export type NodeType = 'default' | 'agent' | 'shared' | 'output'
+export type NodeHeightMode = 'auto' | 'manual'
 
 export type Node = {
   id: string
@@ -36,6 +37,7 @@ export type Node = {
   y: number
   width: number
   height: number
+  heightMode: NodeHeightMode
 }
 
 export type EdgeEmphasis = 'soft' | 'theme'

@@ -180,12 +180,15 @@ describe('editorStateReducer', () => {
 
     expect(nextState.diagram.nodes).toHaveLength(defaultDiagram.nodes.length + 1)
     expect(newNode?.laneId).toBe(lane.id)
-    expect(newNode).toMatchObject({ x: 20, y: 2, width: 18, height: 18 })
+    expect(newNode).toMatchObject({ x: 20, y: 3, width: 16, height: 8.5, heightMode: 'auto' })
     expect(newNode?.title).toBe('New Node')
   })
 
   it('allows a node to move across lane boundaries', () => {
-    const state = createEditorState(defaultDiagram)
+    const state = createEditorState({
+      ...defaultDiagram,
+      nodes: defaultDiagram.nodes.map((node) => ({ ...node, heightMode: 'auto' as const })),
+    })
     const node = defaultDiagram.nodes[0]
 
     const nextState = editorStateReducer(state, {
@@ -248,12 +251,43 @@ describe('editorStateReducer', () => {
   it('resizes assigned nodes against canvas bounds instead of lane bounds', () => {
     const state = createEditorState(defaultDiagram)
     const resized = editorStateReducer(state, {
-      type: 'update-node-height',
+      type: 'resize-node-height',
       nodeId: 'node-1',
       height: 70,
     })
 
     expect(resized.diagram.nodes[0].height).toBe(70)
+    expect(resized.diagram.nodes[0].heightMode).toBe('manual')
+  })
+
+  it('only measures automatic nodes and can restore automatic height', () => {
+    const state = createEditorState({
+      ...defaultDiagram,
+      nodes: defaultDiagram.nodes.map((node) => ({ ...node, heightMode: 'auto' as const })),
+    })
+    const measured = editorStateReducer(state, {
+      type: 'measure-node-height',
+      nodeId: state.diagram.nodes[0].id,
+      height: 9,
+    })
+    const resized = editorStateReducer(measured, {
+      type: 'resize-node-height',
+      nodeId: measured.diagram.nodes[0].id,
+      height: 20,
+    })
+    const ignoredMeasurement = editorStateReducer(resized, {
+      type: 'measure-node-height',
+      nodeId: resized.diagram.nodes[0].id,
+      height: 10,
+    })
+    const restored = editorStateReducer(ignoredMeasurement, {
+      type: 'reset-node-height',
+      nodeId: ignoredMeasurement.diagram.nodes[0].id,
+    })
+
+    expect(measured.diagram.nodes[0].height).toBe(9)
+    expect(ignoredMeasurement.diagram.nodes[0].height).toBe(20)
+    expect(restored.diagram.nodes[0].heightMode).toBe('auto')
   })
 
   it('deletes selected nodes and prunes connected edges', () => {

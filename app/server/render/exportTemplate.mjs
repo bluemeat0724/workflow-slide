@@ -87,7 +87,7 @@ export function generatePresentationHtml(diagram) {
 
   const nodeMarkup = diagram.nodes
     .map((node) => `
-        <article class="${getNodeClassName(node.type)}" style="left:${node.x}%;top:${node.y}%;width:${node.width}%;min-height:${node.height}%;">
+        <article class="${getNodeClassName(node.type)}" style="left:${node.x}%;top:${node.y}%;width:${node.width}%;height:${node.height}%;">
           <h3>${escapeHtml(node.title)}</h3>
           <p>${escapeHtml(node.description)}</p>
           ${node.tag && node.tag.trim() ? `<span class="node-card__tag">${escapeHtml(node.tag)}</span>` : ''}
@@ -229,10 +229,6 @@ body {
   font-size: ${NODE.titleFontSize}px;
   line-height: 1.15;
   color: ${textPrimary};
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .node-card p {
@@ -240,10 +236,6 @@ body {
   color: rgba(11,11,15,.78);
   font-size: ${NODE.bodyFontSize}px;
   line-height: 1.3;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: ${NODE.maxDescriptionLines};
-  -webkit-box-orient: vertical;
 }
 
 .node-card__tag {

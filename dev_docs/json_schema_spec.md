@@ -131,7 +131,8 @@ Lane 是可选的语义分区能力，而不是流程步骤的布局容器：
     "x": 3,
     "y": 12,
     "width": 18,
-    "height": 18
+    "height": 8.5,
+    "heightMode": "auto"
   }
 ]
 ```
@@ -152,10 +153,13 @@ Lane 是可选的语义分区能力，而不是流程步骤的布局容器：
 - `y`: `number`，节点顶部位置，百分比
 - `width`: `number`，节点宽度，百分比
 - `height`: `number`，节点高度，百分比
+- `heightMode`: `string`，节点高度模式，仅允许 `auto` 或 `manual`
 
 约定：
 
 - `x/y/width/height` 使用百分比坐标
+- `auto` 节点会根据完整文字内容自动收紧或增高；用户纵向缩放后切换为 `manual`
+- `manual` 节点保持用户指定高度，可在属性面板恢复自动高度
 - 画布设计坐标系为 `1600 x 900`
 - 节点坐标相对于完整画布计算，与泳道数量、顺序和边界无关
 - 节点可以跨越泳道分隔线；泳道仅用于背景展示
@@ -215,6 +219,7 @@ Lane 是可选的语义分区能力，而不是流程步骤的布局容器：
 - `node.y`
 - `node.width`
 - `node.height`
+- `node.heightMode`
 - `edge.id`
 - `edge.fromNodeId`
 - `edge.toNodeId`

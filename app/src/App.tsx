@@ -357,9 +357,11 @@ function App() {
           onSetMultiSelection={diagramCommands.handleSetMultiSelection}
           onUpdateNodePosition={diagramCommands.handleUpdateNodePosition}
           onUpdateNodeWidth={diagramCommands.handleUpdateNodeWidth}
-          onUpdateNodeHeight={diagramCommands.handleUpdateNodeHeight}
+          onMeasureNodeHeight={diagramCommands.handleMeasureNodeHeight}
+          onResizeNodeHeight={diagramCommands.handleResizeNodeHeight}
           onUpdateNodeContent={diagramCommands.handleUpdateNode}
           onCreateEdge={diagramCommands.handleCreateEdge}
+          onUpdateEdge={diagramCommands.handleUpdateEdge}
           onStatusChange={setStatus}
           onDeleteNode={diagramCommands.handleDeleteNode}
           onDeleteEdge={diagramCommands.handleDeleteEdge}
@@ -375,6 +377,7 @@ function App() {
           onUpdateLane={diagramCommands.handleUpdateLane}
           onDeleteLane={diagramCommands.handleDeleteLane}
           onUpdateNode={diagramCommands.handleUpdateNode}
+          onResetNodeHeight={diagramCommands.handleResetNodeHeight}
           onDeleteNode={diagramCommands.handleDeleteNode}
           onUpdateEdge={diagramCommands.handleUpdateEdge}
           onDeleteEdge={diagramCommands.handleDeleteEdge}

@@ -1,0 +1,13 @@
+{
+  "defaultWidth": 16,
+  "minWidth": 12,
+  "maxWidth": 36,
+  "minAutoHeight": 8.5,
+  "minManualHeight": 8.5,
+  "horizontalPadding": 3,
+  "topPadding": 6,
+  "bottomPadding": 3,
+  "minHorizontalGap": 3,
+  "minVerticalGap": 3,
+  "maxLevelsPerRow": 5
+}

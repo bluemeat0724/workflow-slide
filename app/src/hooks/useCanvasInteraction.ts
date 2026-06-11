@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Node, Selection } from '../model/diagram'
+import type { Edge, Node, Selection } from '../model/diagram'
 import {
   HORIZONTAL_PADDING,
   NODE_MIN_HEIGHT,
@@ -10,6 +10,8 @@ import {
 } from '../utils/geometry'
 
 type ResizeDirection = 'n' | 'e' | 's' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+type ConnectionSide = 'top' | 'right' | 'bottom' | 'left'
+type EdgeEndpoint = 'from' | 'to'
 
 type InteractionState =
   | {
@@ -42,6 +44,18 @@ type InteractionState =
       targetNodeId: string | null
     }
   | {
+      mode: 'reconnect'
+      edgeId: string
+      endpoint: EdgeEndpoint
+      pointerId: number
+      fixedX: number
+      fixedY: number
+      currentX: number
+      currentY: number
+      excludedNodeId: string
+      targetNodeId: string | null
+    }
+  | {
       mode: 'marquee'
       pointerId: number
       startX: number
@@ -56,8 +70,9 @@ type UseCanvasInteractionInput = {
   editingNodeId: string | null
   onUpdateNodePosition: (nodeId: string, x: number, y: number) => void
   onUpdateNodeWidth: (nodeId: string, width: number) => void
-  onUpdateNodeHeight: (nodeId: string, height: number) => void
+  onResizeNodeHeight: (nodeId: string, height: number) => void
   onCreateEdge: (fromNodeId: string, toNodeId: string) => void
+  onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void
   onSetMultiSelection: (nodeIds: string[]) => void
   onSelect: (selection: Selection) => void
 }
@@ -70,8 +85,9 @@ export function useCanvasInteraction({
   editingNodeId,
   onUpdateNodePosition,
   onUpdateNodeWidth,
-  onUpdateNodeHeight,
+  onResizeNodeHeight,
   onCreateEdge,
+  onUpdateEdge,
   onSetMultiSelection,
   onSelect,
 }: UseCanvasInteractionInput) {
@@ -127,7 +143,39 @@ export function useCanvasInteraction({
     })
   }, [])
 
-  const startConnect = useCallback((event: React.PointerEvent<HTMLButtonElement>, node: Node) => {
+  const startConnect = useCallback((event: React.PointerEvent<HTMLButtonElement>, node: Node, side: ConnectionSide) => {
+    event.stopPropagation()
+    const point = getBoardPoint(event.clientX, event.clientY)
+    if (!point) {
+      return
+    }
+
+    const sidePoints = {
+      top: { x: node.x + node.width / 2, y: node.y },
+      right: { x: node.x + node.width, y: node.y + node.height / 2 },
+      bottom: { x: node.x + node.width / 2, y: node.y + node.height },
+      left: { x: node.x, y: node.y + node.height / 2 },
+    }
+    const start = sidePoints[side]
+    setInteraction({
+      mode: 'connect',
+      nodeId: node.id,
+      pointerId: event.pointerId,
+      startX: start.x,
+      startY: start.y,
+      currentX: point.xPercent,
+      currentY: point.yPercent,
+      targetNodeId: null,
+    })
+  }, [getBoardPoint])
+
+  const startReconnect = useCallback((
+    event: React.PointerEvent<SVGCircleElement>,
+    edge: Edge,
+    endpoint: EdgeEndpoint,
+    fixedPoint: { x: number; y: number },
+  ) => {
+    event.preventDefault()
     event.stopPropagation()
     const point = getBoardPoint(event.clientX, event.clientY)
     if (!point) {
@@ -135,13 +183,15 @@ export function useCanvasInteraction({
     }
 
     setInteraction({
-      mode: 'connect',
-      nodeId: node.id,
+      mode: 'reconnect',
+      edgeId: edge.id,
+      endpoint,
       pointerId: event.pointerId,
-      startX: node.x,
-      startY: node.y + node.height / 2,
+      fixedX: fixedPoint.x,
+      fixedY: fixedPoint.y,
       currentX: point.xPercent,
       currentY: point.yPercent,
+      excludedNodeId: endpoint === 'from' ? edge.toNodeId : edge.fromNodeId,
       targetNodeId: null,
     })
   }, [getBoardPoint])
@@ -152,7 +202,7 @@ export function useCanvasInteraction({
     }
 
     const target = event.target
-    if (target instanceof Element && target.closest('.node-card, .edge-path, .context-menu, input, textarea, select, button')) {
+    if (target instanceof Element && target.closest('.node-card, .edge-path, .edge-hit-area, .edge-endpoint-handle, .context-menu, input, textarea, select, button')) {
       return
     }
 
@@ -202,14 +252,12 @@ export function useCanvasInteraction({
         return
       }
 
-      const node = nodes.find((item) => item.id === activeInteraction.nodeId)
-      if (!node) {
-        return
-      }
-
-      if (activeInteraction.mode === 'connect') {
+      if (activeInteraction.mode === 'connect' || activeInteraction.mode === 'reconnect') {
+        const excludedNodeId = activeInteraction.mode === 'connect'
+          ? activeInteraction.nodeId
+          : activeInteraction.excludedNodeId
         const targetNode = nodes.find((candidate) => {
-          if (candidate.id === node.id) {
+          if (candidate.id === excludedNodeId) {
             return false
           }
 
@@ -227,6 +275,11 @@ export function useCanvasInteraction({
           currentY: pointerY,
           targetNodeId: targetNode?.id ?? null,
         })
+        return
+      }
+
+      const node = nodes.find((item) => item.id === activeInteraction.nodeId)
+      if (!node) {
         return
       }
 
@@ -277,7 +330,9 @@ export function useCanvasInteraction({
 
       onUpdateNodePosition(node.id, nextX, nextY)
       onUpdateNodeWidth(node.id, nextWidth)
-      onUpdateNodeHeight(node.id, nextHeight)
+      if (activeInteraction.direction.includes('n') || activeInteraction.direction.includes('s')) {
+        onResizeNodeHeight(node.id, nextHeight)
+      }
     }
 
     function handlePointerUp(event: PointerEvent) {
@@ -308,17 +363,38 @@ export function useCanvasInteraction({
       if (activeInteraction.mode === 'connect' && activeInteraction.targetNodeId) {
         onCreateEdge(activeInteraction.nodeId, activeInteraction.targetNodeId)
       }
+      if (activeInteraction.mode === 'reconnect' && activeInteraction.targetNodeId) {
+        onUpdateEdge(activeInteraction.edgeId, {
+          [activeInteraction.endpoint === 'from' ? 'fromNodeId' : 'toNodeId']: activeInteraction.targetNodeId,
+        })
+      }
       setInteraction(null)
+    }
+
+    function handlePointerCancel(event: PointerEvent) {
+      if (event.pointerId === activeInteraction.pointerId) {
+        setInteraction(null)
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setInteraction(null)
+      }
     }
 
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    window.addEventListener('keydown', handleEscape)
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+      window.removeEventListener('keydown', handleEscape)
     }
-  }, [boardRef, nodes, interaction, onCreateEdge, onSetMultiSelection, onUpdateNodeHeight, onUpdateNodePosition, onUpdateNodeWidth])
+  }, [boardRef, nodes, interaction, onCreateEdge, onResizeNodeHeight, onSetMultiSelection, onUpdateEdge, onUpdateNodePosition, onUpdateNodeWidth])
 
   return {
     interaction,
@@ -326,7 +402,10 @@ export function useCanvasInteraction({
     startDrag,
     startResize,
     startConnect,
+    startReconnect,
     startMarquee,
     updateInteraction,
   }
 }
+
+export type { ConnectionSide, EdgeEndpoint }

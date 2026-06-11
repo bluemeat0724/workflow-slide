@@ -1,6 +1,6 @@
 import { DEFAULT_EDGE_ANIMATION_MODE, type Diagram, type Edge, type EdgeAnimationMode, type Locale, type MultiSelection, type Node, type NodeType, type Selection, type Theme } from '../model/diagram'
 import { createId } from '../utils/ids'
-import { NODE_MIN_HEIGHT, constrainNodeToCanvas } from '../utils/geometry'
+import { NODE_DEFAULT_WIDTH, NODE_MIN_HEIGHT, constrainNodeToCanvas } from '../utils/geometry'
 import { rebuildTheme } from '../utils/theme'
 
 export type EditorState = {
@@ -36,7 +36,9 @@ export type EditorAction =
   | { type: 'update-lane'; laneId: string; updates: UpdateLaneInput }
   | { type: 'add-node' }
   | { type: 'update-node'; nodeId: string; updates: UpdateNodeInput }
-  | { type: 'update-node-height'; nodeId: string; height: number }
+  | { type: 'measure-node-height'; nodeId: string; height: number }
+  | { type: 'resize-node-height'; nodeId: string; height: number }
+  | { type: 'reset-node-height'; nodeId: string }
   | { type: 'delete-node'; nodeId: string }
   | { type: 'update-node-position'; nodeId: string; x: number; y: number }
   | { type: 'update-node-width'; nodeId: string; width: number }
@@ -177,8 +179,9 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
         tag: 'new',
         x: 20,
         y: 2,
-        width: 18,
-        height: 18,
+        width: NODE_DEFAULT_WIDTH,
+        height: NODE_MIN_HEIGHT,
+        heightMode: 'auto',
       }
 
       return {
@@ -202,13 +205,16 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
         },
       }
 
-    case 'update-node-height':
+    case 'measure-node-height':
       return {
         ...state,
         diagram: {
           ...state.diagram,
           nodes: state.diagram.nodes.map((node) => {
             if (node.id !== action.nodeId) {
+              return node
+            }
+            if (node.heightMode !== 'auto') {
               return node
             }
 
@@ -219,6 +225,36 @@ export function editorStateReducer(state: EditorState, action: EditorAction): Ed
 
             return constrainNodeToCanvas({ ...node, height: roundedHeight })
           }),
+        },
+      }
+
+    case 'resize-node-height':
+      return {
+        ...state,
+        diagram: {
+          ...state.diagram,
+          nodes: state.diagram.nodes.map((node) => {
+            if (node.id !== action.nodeId) {
+              return node
+            }
+
+            return constrainNodeToCanvas({
+              ...node,
+              height: Number(Math.max(action.height, NODE_MIN_HEIGHT).toFixed(2)),
+              heightMode: 'manual',
+            })
+          }),
+        },
+      }
+
+    case 'reset-node-height':
+      return {
+        ...state,
+        diagram: {
+          ...state.diagram,
+          nodes: state.diagram.nodes.map((node) => (
+            node.id === action.nodeId ? { ...node, heightMode: 'auto' } : node
+          )),
         },
       }
 

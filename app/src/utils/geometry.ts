@@ -1,10 +1,12 @@
 import { BOARD_HEIGHT, BOARD_WIDTH, type Edge, type Lane, type Node } from '../model/diagram'
+import nodeSizing from '../../shared/nodeSizing.json'
 
-export const NODE_MIN_WIDTH = 12
-export const NODE_MAX_WIDTH = 36
-export const NODE_MIN_HEIGHT = 12
-export const HORIZONTAL_PADDING = 2
-export const VERTICAL_PADDING = 2
+export const NODE_DEFAULT_WIDTH = nodeSizing.defaultWidth
+export const NODE_MIN_WIDTH = nodeSizing.minWidth
+export const NODE_MAX_WIDTH = nodeSizing.maxWidth
+export const NODE_MIN_HEIGHT = nodeSizing.minManualHeight
+export const HORIZONTAL_PADDING = nodeSizing.horizontalPadding
+export const VERTICAL_PADDING = nodeSizing.bottomPadding
 
 export function percentXToCanvas(value: number): number {
   return (value / 100) * BOARD_WIDTH
@@ -163,19 +165,34 @@ export function getNodeSidePoint(source: Node, target: Node) {
       }
 }
 
-export function buildEdgePath(edge: Edge, nodes: Node[]): string {
+export function getEdgeAnchor(edge: Edge, nodes: Node[]) {
   const source = nodes.find((node) => node.id === edge.fromNodeId)
   const target = nodes.find((node) => node.id === edge.toNodeId)
 
   if (!source || !target) {
-    return ''
+    return null
   }
 
   const anchor = getNodeSidePoint(source, target)
-  const startX = percentXToCanvas(anchor.startX)
-  const startY = percentYToCanvas(anchor.startY)
-  const endX = percentXToCanvas(anchor.endX)
-  const endY = percentYToCanvas(anchor.endY)
+  return {
+    ...anchor,
+    startXCanvas: percentXToCanvas(anchor.startX),
+    startYCanvas: percentYToCanvas(anchor.startY),
+    endXCanvas: percentXToCanvas(anchor.endX),
+    endYCanvas: percentYToCanvas(anchor.endY),
+  }
+}
+
+export function buildEdgePath(edge: Edge, nodes: Node[]): string {
+  const anchor = getEdgeAnchor(edge, nodes)
+  if (!anchor) {
+    return ''
+  }
+
+  const startX = anchor.startXCanvas
+  const startY = anchor.startYCanvas
+  const endX = anchor.endXCanvas
+  const endY = anchor.endYCanvas
   const dx = endX - startX
   const dy = endY - startY
   const controlX = Math.max(Math.abs(dx) * 0.35, 64)

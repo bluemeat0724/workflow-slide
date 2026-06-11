@@ -152,6 +152,7 @@ export type Messages = {
     canvasTitle: string
     connectToField: string
     createEdge: string
+    resetNodeHeight: string
     themeNameField: string
     themePresetField: string
     edgeAnimationModeField: string
@@ -173,6 +174,9 @@ export type Messages = {
     contextSelectNode: string
     contextDeleteNode: string
     contextDeleteEdge: string
+    createEdgeFromSide: string
+    reconnectEdgeFrom: string
+    reconnectEdgeTo: string
   }
   nodeTypes: {
     default: string

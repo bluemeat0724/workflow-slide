@@ -14,6 +14,7 @@ type InspectorProps = {
   onUpdateLane: (laneId: string, updates: { title?: string; subtitle?: string }) => void
   onDeleteLane: (laneId: string) => void
   onUpdateNode: (nodeId: string, updates: { title?: string; description?: string; tag?: string; type?: NodeType; laneId?: string | null }) => void
+  onResetNodeHeight: (nodeId: string) => void
   onDeleteNode: (nodeId: string) => void
   onUpdateEdge: (edgeId: string, updates: { fromNodeId?: string; toNodeId?: string; emphasis?: EdgeEmphasis }) => void
   onDeleteEdge: (edgeId: string) => void
@@ -34,6 +35,7 @@ export function Inspector({
   onUpdateLane,
   onDeleteLane,
   onUpdateNode,
+  onResetNodeHeight,
   onDeleteNode,
   onUpdateEdge,
   onDeleteEdge,
@@ -234,6 +236,11 @@ export function Inspector({
         <button type="button" className="inspector__action-button" disabled={!resolvedTargetNodeId} onClick={() => onCreateEdge(node.id, resolvedTargetNodeId)}>
           {messages.inspector.createEdge}
         </button>
+        {node.heightMode === 'manual' ? (
+          <button type="button" className="inspector__action-button" onClick={() => onResetNodeHeight(node.id)}>
+            {messages.inspector.resetNodeHeight}
+          </button>
+        ) : null}
         <button type="button" className="inspector__danger-button" onClick={() => onDeleteNode(node.id)}>
           {messages.inspector.deleteNode}
         </button>

@@ -153,7 +153,16 @@ function assertNode(value) {
     y: assertNumber(node.y, 'diagram.nodes[].y'),
     width: assertNumber(node.width, 'diagram.nodes[].width'),
     height: assertNumber(node.height, 'diagram.nodes[].height'),
+    heightMode: assertNodeHeightMode(node.heightMode),
   }
+}
+
+function assertNodeHeightMode(value) {
+  if (value === 'auto' || value === 'manual') {
+    return value
+  }
+
+  throw createValidationError('diagram.nodes[].heightMode', 'diagram.nodes[].heightMode is invalid.')
 }
 
 function assertNullableString(value, field) {

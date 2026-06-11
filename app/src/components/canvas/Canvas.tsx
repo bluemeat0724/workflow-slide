@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { Diagram, MultiSelection, Selection } from '../../model/diagram'
+import type { Diagram, Edge, MultiSelection, Selection } from '../../model/diagram'
 import { BOARD_HEIGHT, BOARD_WIDTH } from '../../model/diagram'
 import type { Messages } from '../../i18n'
 import {
   buildEdgePath,
+  getEdgeAnchor,
   getLaneBounds,
 } from '../../utils/geometry'
 import { buildEdgeAnimationPlan, getEdgeDashOffset, resolveEdgeAnimationMode } from '../../utils/edgeAnimation'
 import { getSectionSubtitle, getSectionTitle } from '../../utils/sectionLabels'
 import {
   useCanvasInteraction,
+  type ConnectionSide,
   type ResizeDirection,
 } from '../../hooks/useCanvasInteraction'
 
@@ -24,9 +26,11 @@ type CanvasProps = {
   onSetMultiSelection: (nodeIds: string[]) => void
   onUpdateNodePosition: (nodeId: string, x: number, y: number) => void
   onUpdateNodeWidth: (nodeId: string, width: number) => void
-  onUpdateNodeHeight: (nodeId: string, height: number) => void
+  onMeasureNodeHeight: (nodeId: string, height: number) => void
+  onResizeNodeHeight: (nodeId: string, height: number) => void
   onUpdateNodeContent: (nodeId: string, updates: { title?: string; description?: string; tag?: string }) => void
   onCreateEdge: (fromNodeId: string, toNodeId: string) => void
+  onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void
   onStatusChange: (message: string) => void
   onDeleteNode: (nodeId: string) => void
   onDeleteEdge: (edgeId: string) => void
@@ -38,6 +42,7 @@ type ContextMenuState =
   | null
 
 const RESIZE_DIRECTIONS: ResizeDirection[] = ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw']
+const CONNECTION_SIDES: ConnectionSide[] = ['top', 'right', 'bottom', 'left']
 const FULLSCREEN_ICON_STROKE_WIDTH = 1.8
 
 function getNodeClassName(type: Diagram['nodes'][number]['type']) {
@@ -87,9 +92,11 @@ export function Canvas({
   onSetMultiSelection,
   onUpdateNodePosition,
   onUpdateNodeWidth,
-  onUpdateNodeHeight,
+  onMeasureNodeHeight,
+  onResizeNodeHeight,
   onUpdateNodeContent,
   onCreateEdge,
+  onUpdateEdge,
   onStatusChange,
   onDeleteNode,
   onDeleteEdge,
@@ -111,6 +118,7 @@ export function Canvas({
     startDrag,
     startResize,
     startConnect,
+    startReconnect,
     startMarquee,
   } = useCanvasInteraction({
     boardRef,
@@ -118,8 +126,9 @@ export function Canvas({
     editingNodeId: resolvedEditingNodeId,
     onUpdateNodePosition,
     onUpdateNodeWidth,
-    onUpdateNodeHeight,
+    onResizeNodeHeight,
     onCreateEdge,
+    onUpdateEdge,
     onSetMultiSelection,
     onSelect,
   })
@@ -165,8 +174,9 @@ export function Canvas({
       }
 
       entries.forEach((entry) => {
-        const element = entry.target as HTMLElement
-        const nodeId = element.dataset.nodeId
+        const content = entry.target as HTMLElement
+        const element = content.closest<HTMLElement>('[data-node-id]')
+        const nodeId = element?.dataset.nodeId
         if (!nodeId) {
           return
         }
@@ -176,19 +186,28 @@ export function Canvas({
           return
         }
 
-        const requiredHeight = (element.scrollHeight / boardRect.height) * 100
-        if (requiredHeight > node.height + 0.15) {
-          onUpdateNodeHeight(nodeId, requiredHeight)
+        if (!element || node.heightMode !== 'auto' || resolvedEditingNodeId === nodeId) {
+          return
+        }
+
+        const styles = window.getComputedStyle(element)
+        const verticalPadding = Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom)
+        const requiredHeight = ((content.scrollHeight + verticalPadding) / boardRect.height) * 100
+        if (Math.abs(requiredHeight - node.height) > 0.15) {
+          onMeasureNodeHeight(nodeId, requiredHeight)
         }
       })
     })
 
-    nodeRefs.current.forEach((element) => observer.observe(element))
+    nodeRefs.current.forEach((element) => {
+      const content = element.querySelector<HTMLElement>('.node-card__content')
+      if (content) observer.observe(content)
+    })
 
     return () => {
       observer.disconnect()
     }
-  }, [diagram.nodes, onUpdateNodeHeight])
+  }, [diagram.nodes, onMeasureNodeHeight, resolvedEditingNodeId])
 
   useEffect(() => {
     if (!resolvedEditingNodeId) {
@@ -255,17 +274,20 @@ export function Canvas({
   }
 
   function renderDraftEdge() {
-    if (!interaction || interaction.mode !== 'connect') {
+    if (!interaction || (interaction.mode !== 'connect' && interaction.mode !== 'reconnect')) {
       return null
     }
 
-    const startX = (interaction.startX / 100) * BOARD_WIDTH
-    const startY = (interaction.startY / 100) * BOARD_HEIGHT
-    const endX = (interaction.currentX / 100) * BOARD_WIDTH
-    const endY = (interaction.currentY / 100) * BOARD_HEIGHT
+    const reconnectingFrom = interaction.mode === 'reconnect' && interaction.endpoint === 'from'
+    const fixedX = interaction.mode === 'connect' ? interaction.startX : interaction.fixedX
+    const fixedY = interaction.mode === 'connect' ? interaction.startY : interaction.fixedY
+    const startX = ((reconnectingFrom ? interaction.currentX : fixedX) / 100) * BOARD_WIDTH
+    const startY = ((reconnectingFrom ? interaction.currentY : fixedY) / 100) * BOARD_HEIGHT
+    const endX = ((reconnectingFrom ? fixedX : interaction.currentX) / 100) * BOARD_WIDTH
+    const endY = ((reconnectingFrom ? fixedY : interaction.currentY) / 100) * BOARD_HEIGHT
     const dx = endX - startX
     const control = Math.max(Math.abs(dx) * 0.35, 64)
-    const path = `M ${startX} ${startY} C ${startX - control} ${startY}, ${endX + control} ${endY}, ${endX} ${endY}`
+    const path = `M ${startX} ${startY} C ${startX + (dx >= 0 ? control : -control)} ${startY}, ${endX - (dx >= 0 ? control : -control)} ${endY}, ${endX} ${endY}`
 
     return <path d={path} className={`edge-path edge-path--theme edge-path--draft ${interaction.targetNodeId ? 'is-targeting' : ''}`} markerEnd="url(#arrow-theme)" />
   }
@@ -371,7 +393,7 @@ export function Canvas({
               )
             })}
 
-            <svg className="edge-layer" viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
+            <svg className="edge-layer" viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`} preserveAspectRatio="none">
               <defs>
                 <marker id="arrow-theme" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L0,6 L8,3 z" fill={diagram.theme.accent} />
@@ -384,27 +406,70 @@ export function Canvas({
               {diagram.edges.map((edge) => {
                 const isSelected = selection.kind === 'edge' && selection.id === edge.id
                 const dashOffset = getEdgeDashOffset({ mode: edgeAnimationMode, plan: edgeAnimationPlan, edgeId: edge.id, elapsedMs: animationElapsed })
+                const path = buildEdgePath(edge, diagram.nodes)
+                const anchor = getEdgeAnchor(edge, diagram.nodes)
+                const selectEdge = () => {
+                  onSelect({ kind: 'edge', id: edge.id })
+                  onSetMultiSelection([])
+                  setContextMenu(null)
+                }
                 return (
-                  <path
-                    key={edge.id}
-                    d={buildEdgePath(edge, diagram.nodes)}
-                    className={`edge-path edge-path--${edge.emphasis} ${isSelected ? 'is-selected' : ''}`}
-                    style={{ '--edge-dash-offset': String(dashOffset) } as CSSProperties}
-                    markerEnd={edge.emphasis === 'theme' ? 'url(#arrow-theme)' : 'url(#arrow-soft)'}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onSelect({ kind: 'edge', id: edge.id })
-                      onSetMultiSelection([])
-                      setContextMenu(null)
-                    }}
-                    onContextMenu={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      onSelect({ kind: 'edge', id: edge.id })
-                      onSetMultiSelection([])
-                      openContextMenu('edge', edge.id, event.clientX, event.clientY)
-                    }}
-                  />
+                  <g key={edge.id} className={`edge-group ${isSelected ? 'is-selected' : ''}`}>
+                    <path
+                      d={path}
+                      className="edge-hit-area"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        selectEdge()
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        selectEdge()
+                        openContextMenu('edge', edge.id, event.clientX, event.clientY)
+                      }}
+                    />
+                    <path
+                      d={path}
+                      className={`edge-path edge-path--${edge.emphasis}`}
+                      style={{ '--edge-dash-offset': String(dashOffset) } as CSSProperties}
+                      markerEnd={edge.emphasis === 'theme' ? 'url(#arrow-theme)' : 'url(#arrow-soft)'}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        selectEdge()
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        selectEdge()
+                        openContextMenu('edge', edge.id, event.clientX, event.clientY)
+                      }}
+                    />
+                    {isSelected && anchor ? (
+                      <>
+                        <circle
+                          className="edge-endpoint-handle edge-endpoint-handle--from"
+                          cx={anchor.startXCanvas}
+                          cy={anchor.startYCanvas}
+                          r="8"
+                          role="button"
+                          aria-label={messages.canvas.reconnectEdgeFrom}
+                          tabIndex={0}
+                          onPointerDown={(event) => startReconnect(event, edge, 'from', { x: anchor.endX, y: anchor.endY })}
+                        />
+                        <circle
+                          className="edge-endpoint-handle edge-endpoint-handle--to"
+                          cx={anchor.endXCanvas}
+                          cy={anchor.endYCanvas}
+                          r="8"
+                          role="button"
+                          aria-label={messages.canvas.reconnectEdgeTo}
+                          tabIndex={0}
+                          onPointerDown={(event) => startReconnect(event, edge, 'to', { x: anchor.startX, y: anchor.startY })}
+                        />
+                      </>
+                    ) : null}
+                  </g>
                 )
               })}
               {renderDraftEdge()}
@@ -415,7 +480,7 @@ export function Canvas({
               const isSelected = selection.kind === 'node' && selection.id === node.id
               const isMultiSelected = multiSelection.nodeIds.includes(node.id)
               const isEditing = resolvedEditingNodeId === node.id
-              const isTargetNode = interaction?.mode === 'connect' && interaction.targetNodeId === node.id
+              const isTargetNode = (interaction?.mode === 'connect' || interaction?.mode === 'reconnect') && interaction.targetNodeId === node.id
 
               return (
                 <article
@@ -452,20 +517,30 @@ export function Canvas({
                     openContextMenu('node', node.id, event.clientX, event.clientY)
                   }}
                 >
-                  <button type="button" className="node-card__connect-handle" aria-label="Create edge" onPointerDown={(event) => startConnect(event, node)} />
-                  {isEditing ? (
-                    <div className="node-card__inline-editor" onPointerDown={(event) => event.stopPropagation()}>
-                      <input value={node.title} placeholder={messages.canvas.inlineTitlePlaceholder} onChange={(event) => onUpdateNodeContent(node.id, { title: event.target.value })} />
-                      <textarea rows={4} value={node.description} placeholder={messages.canvas.inlineDescriptionPlaceholder} onChange={(event) => onUpdateNodeContent(node.id, { description: event.target.value })} />
-                      <input value={node.tag} placeholder={messages.canvas.inlineTagPlaceholder} onChange={(event) => onUpdateNodeContent(node.id, { tag: event.target.value })} onBlur={stopInlineEdit} />
-                    </div>
-                  ) : (
-                    <>
-                      <h3>{node.title}</h3>
-                      <p>{node.description}</p>
-                      {node.tag.trim() ? <span className="node-card__tag">{node.tag}</span> : null}
-                    </>
-                  )}
+                  {CONNECTION_SIDES.map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      className={`node-card__connect-handle node-card__connect-handle--${side}`}
+                      aria-label={messages.canvas.createEdgeFromSide}
+                      onPointerDown={(event) => startConnect(event, node, side)}
+                    />
+                  ))}
+                  <div className="node-card__content">
+                    {isEditing ? (
+                      <div className="node-card__inline-editor" onPointerDown={(event) => event.stopPropagation()}>
+                        <input value={node.title} placeholder={messages.canvas.inlineTitlePlaceholder} onChange={(event) => onUpdateNodeContent(node.id, { title: event.target.value })} />
+                        <textarea rows={4} value={node.description} placeholder={messages.canvas.inlineDescriptionPlaceholder} onChange={(event) => onUpdateNodeContent(node.id, { description: event.target.value })} />
+                        <input value={node.tag} placeholder={messages.canvas.inlineTagPlaceholder} onChange={(event) => onUpdateNodeContent(node.id, { tag: event.target.value })} onBlur={stopInlineEdit} />
+                      </div>
+                    ) : (
+                      <>
+                        <h3>{node.title}</h3>
+                        <p>{node.description}</p>
+                        {node.tag.trim() ? <span className="node-card__tag">{node.tag}</span> : null}
+                      </>
+                    )}
+                  </div>
                   {RESIZE_DIRECTIONS.map((direction) => (
                     <button
                       key={direction}

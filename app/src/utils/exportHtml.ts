@@ -213,7 +213,7 @@ export function generateStandaloneHtml(diagram: Diagram): string {
   const nodeMarkup = diagram.nodes
     .map(
       (node) => `
-        <article class="${getNodeClassName(node.type)}" style="left:${node.x}%;top:${node.y}%;width:${node.width}%;min-height:${node.height}%;">
+        <article class="${getNodeClassName(node.type)}" style="left:${node.x}%;top:${node.y}%;width:${node.width}%;height:${node.height}%;">
           <h3>${escapeHtml(node.title)}</h3>
           <p>${escapeHtml(node.description)}</p>
           ${node.tag.trim() ? `<span class="node-card__tag">${escapeHtml(node.tag)}</span>` : ''}
