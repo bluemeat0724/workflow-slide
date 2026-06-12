@@ -127,6 +127,32 @@
   cursor: not-allowed;
 }
 
+.toolbar__icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  text-decoration: none;
+}
+
+.toolbar__icon-link:hover,
+.toolbar__icon-link:focus-visible {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.toolbar__icon-link:focus-visible {
+  outline: 2px solid var(--theme-accent-28, rgba(125, 44, 255, 0.28));
+  outline-offset: 2px;
+}
+
+.toolbar__icon-link svg {
+  width: 35px;
+  height: 35px;
+}
+
 .editor-grid {
   grid-row: 2;
   display: grid;
